@@ -2,19 +2,24 @@
 #include <string>
 #include <vector>
 #include <iostream>
-#include "SFML/Graphics.hpp"
+#include <string>
 
-int main() {
-	sf::RenderWindow window(sf::VideoMode(800, 800), "Text");
-	sf::Event e;
+int main(int argc, char* argv[])
+{
+    std::string filepath = argv[1];
+    std::string extension = "";
+    bool collectExtension = false;
 
-	while (window.isOpen()) {
-		while (window.pollEvent(e)) {
-			if (e.type == sf::Event::Closed) {
-				window.close();
-			}
-		}
-	}
-	std::cout << "This is a test" << std::endl;
-	return 0;
+    for (int i = 0; i < filepath.length(); i++) {
+        if (collectExtension) {
+            extension += filepath[i];
+        }
+        if (filepath[i] == '.') {
+            collectExtension = true;
+        }
+    }
+
+    if (extension != "txt") {
+        return 1;
+    }
 }
