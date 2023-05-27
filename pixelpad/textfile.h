@@ -1,14 +1,16 @@
 #pragma once
 #include <string>
 #include <vector>
+#include "gapbuffer.h"
 
 class TextFile {
 	private:
-		std::string documentName;
-		std::string documentPath;
+		GapBuffer gap_buffer;
+		std::string document_name;
+		std::string document_path;
 		// TODO: Add text file content
 	public:
-		TextFile(std::string documentname, std::string documentpath);
+		TextFile(std::string document_name, std::string document_path);
 		std::string GetDocumentName();
 		std::string GetDocumentPath();
 		TextFile() = default;

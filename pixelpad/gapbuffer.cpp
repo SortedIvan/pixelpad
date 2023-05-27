@@ -1,5 +1,16 @@
 #include "gapbuffer.h"
 
+GapBuffer::GapBuffer(std::vector<char> content, int gap_start, int gap_end, int gap_size) {
+	this->content = content;
+	this->gap_start = gap_start;
+	this->gap_end = gap_end;
+	this->gap_size = gap_size;
+}
+
+GapBuffer::GapBuffer() {
+
+}
+
 void GapBuffer::SetGapEnd(int new_position) {
 	this->gap_end = new_position;
 }
@@ -10,6 +21,14 @@ void GapBuffer::SetGapStart(int new_position) {
 
 void GapBuffer::SetGapSize(int new_size) {
 	this->gap_size = new_size;
+}
+
+std::vector<char> GapBuffer::GetContent() {
+	return this->content;
+}
+
+void GapBuffer::SetContent(std::vector<char> content) {
+	this->content = content;
 }
 
 void GapBuffer::MoveGapLeft() {

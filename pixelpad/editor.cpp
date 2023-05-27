@@ -1,25 +1,8 @@
 #include "editor.h"
-#include <iostream>
-#include <fstream>
 
 
 int Editor::OpenEditor(std::string filename, std::string filepath) 
 {
-    std::ifstream file(filename);
-
-
-
-    if (file.is_open()) {
-        std::string line;
-        while (std::getline(file, line)) {
-            std::cout << line << std::endl;
-        }
-        file.close();
-    }
-    else {
-        std::cout << "Failed to open the file." << std::endl;
-    }
-
 
 
 
