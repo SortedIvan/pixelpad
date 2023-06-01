@@ -86,7 +86,12 @@ void GapBuffer::ResizeGapMemory(int gapSize, int fromIndex) {
 }
 
 void GapBuffer::ResizeGapMemoryFromBack(int gapSize) {
-	for (int i = content.size() + 1; i < gapSize; i++) {
+
+	int content_size = this->content.size();
+	int content_size_ = content_size + 1 + gapSize;
+
+
+	for (int i = content_size + 1; i < content_size_; i++) {
 		this->content.push_back(' ');
 	}
 }
@@ -95,12 +100,43 @@ void GapBuffer::ResizeGapMemoryFromBack(int gapSize) {
 void GapBuffer::InsertCharacter(char character) {
 	if (this->gap_size <= 0) {
 		SetGapSize(150); // If the gap is going to be 0 after char insertion, make gap bigger again
+		ResizeGapMemory(150, curr_index);
 	}
 
 	// Insert character at start
-	//this->content[gap_start] = character;
+	this->content.at(this->gap_start) = character;
 
-	gap_start++;
+	this->gap_start++;
 	this->gap_size--;
-	this->gap_end = gap_start + gap_size;
+	this->gap_end = this->gap_start + this->gap_size;
+
+}
+
+
+void GapBuffer::MoveIndexLeft() {
+	if (curr_index == 0) {
+		return;
+	}
+
+	curr_index--;
+}
+
+void GapBuffer::MoveIndexRight() {
+	if (curr_index == content.size() - 1) {
+		return;
+	}
+
+	curr_index++;
+}
+
+int GapBuffer::GetGapStart() {
+	return this->gap_start;
+}
+
+int GapBuffer::GetGapEnd() {
+	return this->gap_end;
+}
+
+int GapBuffer::GetGapSize() {
+	return this->gap_size;
 }

@@ -8,6 +8,7 @@
 
 int main(int argc, char* argv[])
 {
+    Editor editor; // Create the editor object that will be used throughout the application cycle
 
     if (argv[1] == NULL) {
         // run without file
@@ -16,8 +17,6 @@ int main(int argc, char* argv[])
     std::string filepath = argv[1];
     std::string extension = "";
     bool collectExtension = false;
-    
-    Editor editor; // Create the editor object that will be used throughout the application cycle
 
     for (int i = 0; i < filepath.length(); i++) {
         if (collectExtension) {

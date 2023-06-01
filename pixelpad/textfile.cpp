@@ -25,11 +25,13 @@ TextFile::TextFile(std::string document_name, std::string document_path) {
 	}
 
 	std::vector<char> content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>()); // Read the content
-	int content_size = content.size();
 
 	gap_buffer.SetContent(content);
 
 	gap_buffer.SetGapSize(150);
+
+	gap_buffer.SetGapStart(content.size());
+	gap_buffer.SetGapEnd(content.size() + 150);
 
 	gap_buffer.ResizeGapMemoryFromBack(150);
 
@@ -47,3 +49,4 @@ std::string TextFile::GetDocumentPath() {
 GapBuffer TextFile::GetGapBuffer() {
 	return this->gap_buffer;
 }
+
