@@ -8,8 +8,7 @@ class Editor {
 	private:
 		std::vector<TextFile>* textfiles = new std::vector<TextFile>();
 	public:
-		int OpenFile(std::string filename);
+		int StartEditorWithFile(std::string filename, std::string filepath);
+		Editor() = default;
 
-	
-		
 };

@@ -21,8 +21,13 @@ class GapBuffer {
 		void MoveGapLeft();
 		void MoveGapRight();
 
+		void InsertCharacter(char character);
+		
 		std::vector<char> GetContent();
 		void SetContent(std::vector<char> content);
+		void ResizeGapMemory(int gapSize, int fromIndex);
+		void ResizeGapMemoryFromBack(int gapSize);
+
 
 };
 
