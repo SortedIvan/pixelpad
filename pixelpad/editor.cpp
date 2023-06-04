@@ -3,6 +3,7 @@
 #include "SFML/Graphics.hpp"
 #include <stdio.h>
 #include <iostream>
+#include <conio.h>
 
 void HandleUserInput(sf::Event& event, TextFile& textfile);
 void PrintOutDebug(TextFile& textfile);
@@ -21,27 +22,21 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	sf::RenderWindow window(sf::VideoMode(1650, 900), "pixelpad");
 	sf::Event e;
 
-	std::cout << "nani";
-
 	while (window.isOpen()) {
 		while (window.pollEvent(e)) {
 
-
+			// <------------- handle input ---------------------->
 			if (e.type == sf::Event::TextEntered) {
-				// <------------- handle input ---------------------->
-
-				if (e.type == sf::Event::KeyReleased) {
-					HandleLeftRightKeys(e, textfile);
-				}
-
 				if (e.text.unicode < 128) {
 					HandleUserInput(e, textfile);
 					PrintOutDebug(textfile);
 				}
 
 			}
-
-
+			// <------------- handle cursor movement ---------------------->
+			if (e.type == sf::Event::KeyPressed) {
+				HandleLeftRightKeys(e, textfile);
+			}
 
 			if (e.type == sf::Event::Closed) {
 				window.close();
@@ -76,20 +71,13 @@ void PrintOutDebug(TextFile& textfile) {
 			std::cout << textfile.gap_buffer.GetContent().at(i);
 		}
 	}
-
-
-
 }
 
 void HandleLeftRightKeys(sf::Event& e, TextFile& textfile) {
-	if (e.text.unicode == 37) {
-		// Move left
+	if (e.key.code == sf::Keyboard::Left)
 		textfile.gap_buffer.MoveGapLeft();
-
-	}
-	else if (e.text.unicode == 39) {
-		// Move right
+		PrintOutDebug(textfile);
+	if (e.key.code == sf::Keyboard::Right)
 		textfile.gap_buffer.MoveGapRight();
-	}
 }
 

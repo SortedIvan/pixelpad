@@ -30,27 +30,34 @@ void GapBuffer::SetContent(std::vector<char> content) {
 }
 
 void GapBuffer::MoveGapLeft() {
+	// In order to move the gap to the left, you first have to see if there are any elements that need to be copied to the right
+	// Say you have the array: [a, b, c, d, _, _, _, _] where the gap is represented by _
+	// if you move it one to the left, the resulting array would look like this: [a, b, c, _, _, _, _, d]
+
 	if (this->gap_start == 0) { // Check if moving the gap left would result in below zero
 		return;
 	}
 
-	// In order to move the gap to the left, you first have to see if there are any elements that need to be copied to the right
-	// Say you have the array: [a, b, c, d, _, _, _, _] where the gap is represented by _
-	// if you move it one to the left, the resulting array would look like this: [a, b, c, _, _, _, _, d]
-	
-	content[gap_end] = content[gap_start - 1];
+	try {
+		content[gap_end] = content[gap_start - 1];
+		this->gap_start = gap_start - 1;
+		this->gap_end = gap_end - 1;
+	}
+	catch (const std::exception& e) {
+		std::cout << e.what(); // information from error printed
+	}
 
-	this->gap_start = gap_start - 1;
-	this->gap_end = gap_end - 1;
 
 }
 
+
+// TODO: Fix this, it does not work by 1 index (have to tap twice)
 void GapBuffer::MoveGapRight() {
-	if (this->gap_end == content.size()) { // Check if going right would exceed the size of the content array
+	if (this->gap_end == (content.size() - 1)) { // Check if going right would exceed the size of the content array
 		return;
 	}
 
-	content[gap_end + 1] = content[gap_start]; // Move the element on the right of the gap to the start of the gap
+	content[gap_start] = content[gap_end + 1]; // Move the element on the right of the gap to the start of the gap
 
 	this->gap_end = gap_end + 1;
 	this->gap_start = gap_start + 1;
@@ -91,7 +98,6 @@ void GapBuffer::ResizeGapMemoryFromBack(int gapSize) {
 	int content_size = this->content.size();
 	int content_size_ = content_size + 1 + gapSize;
 
-
 	for (int i = content_size + 1; i < content_size_; i++) {
 		this->content.push_back(' ');
 	}
@@ -112,10 +118,9 @@ void GapBuffer::InsertCharacter(char character) {
 		std::cout << e.what(); // information from error printed
 	}
 
-	this->curr_index++; // Increment the cursor index
 	this->gap_start++;
 	this->gap_size--;
-	this->gap_end = this->gap_start + this->gap_size;
+	this->gap_end = this->gap_start + (this->gap_size - 1);
 
 }
 

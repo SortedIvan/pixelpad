@@ -14,8 +14,6 @@ TextFile::TextFile(std::string document_name, std::string document_path) {
 
 	if (!file) {
 		gap_buffer.SetContent(content_empty);  // Set to empty content
-		gap_buffer.SetGapStart(0);
-		gap_buffer.SetGapEnd(0);
 		gap_buffer.SetGapSize(150);
 
 		gap_buffer.ResizeGapMemory(150, 0);
@@ -31,7 +29,7 @@ TextFile::TextFile(std::string document_name, std::string document_path) {
 	gap_buffer.SetGapSize(150);
 
 	gap_buffer.SetGapStart(content.size());
-	gap_buffer.SetGapEnd(content.size() + 150);
+	gap_buffer.SetGapEnd((content.size() - 1) + 150);
 
 	gap_buffer.ResizeGapMemoryFromBack(150);
 
