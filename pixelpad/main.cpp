@@ -6,6 +6,9 @@
 #include "textfile.h"
 #include "editor.h"
 
+
+// TODO: Fix issue with gap_end not resizing correctly
+
 int main(int argc, char* argv[])
 {
     Editor editor; // Create the editor object that will be used throughout the application cycle

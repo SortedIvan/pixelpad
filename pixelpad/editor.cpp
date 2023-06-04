@@ -4,9 +4,9 @@
 #include <stdio.h>
 #include <iostream>
 
-void PrintOutCharactersFromVector(std::vector<char> characters);
 void HandleUserInput(sf::Event& event, TextFile& textfile);
 void PrintOutDebug(TextFile& textfile);
+void HandleLeftRightKeys(sf::Event& e, TextFile& textfile);
 
 
 int Editor::StartEditorWithFile(std::string filename, std::string filepath)
@@ -29,6 +29,11 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 
 			if (e.type == sf::Event::TextEntered) {
 				// <------------- handle input ---------------------->
+
+				if (e.type == sf::Event::KeyReleased) {
+					HandleLeftRightKeys(e, textfile);
+				}
+
 				if (e.text.unicode < 128) {
 					HandleUserInput(e, textfile);
 					PrintOutDebug(textfile);
@@ -48,14 +53,6 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 }
 
 
-
-void PrintOutCharactersFromVector(std::vector<char> characters) {
-	// <--------------- Printing out contents of the gap buffer for testing ---------------------------->
-	for (int i = 0; i < characters.size(); i++) {
-		std::cout << characters[i];
-	}
-}
-
 void HandleUserInput(sf::Event& event, TextFile& textfile) {
 	// If the unicode is not backspace, enter, left or right arrow
 	if (event.text.unicode != '\b' && event.text.unicode != 13 && event.text.unicode != '37' && event.text.unicode != '39' && !sf::Keyboard::isKeyPressed(sf::Keyboard::LControl))
@@ -68,5 +65,31 @@ void PrintOutDebug(TextFile& textfile) {
 	std::cout << textfile.gap_buffer.GetGapStart() << " is the gap start" << std::endl;
 	std::cout << textfile.gap_buffer.GetGapEnd() << " is the gap end" << std::endl;
 	std::cout << textfile.gap_buffer.GetGapSize() << " is the gap size" << std::endl;
+
+	for (int i = 0; i < textfile.gap_buffer.GetContent().size(); i++) {
+		if (i == textfile.gap_buffer.GetGapStart()) {
+			for (int k = i; k < textfile.gap_buffer.GetGapEnd(); i++, k++) {
+				std::cout << "_";
+			}
+		}
+		else {
+			std::cout << textfile.gap_buffer.GetContent().at(i);
+		}
+	}
+
+
+
+}
+
+void HandleLeftRightKeys(sf::Event& e, TextFile& textfile) {
+	if (e.text.unicode == 37) {
+		// Move left
+		textfile.gap_buffer.MoveGapLeft();
+
+	}
+	else if (e.text.unicode == 39) {
+		// Move right
+		textfile.gap_buffer.MoveGapRight();
+	}
 }
 

@@ -6,6 +6,7 @@ GapBuffer::GapBuffer(std::vector<char> content, int gap_start, int gap_end, int 
 	this->gap_start = gap_start;
 	this->gap_end = gap_end;
 	this->gap_size = gap_size;
+	this->curr_index = 0;
 }
 
 void GapBuffer::SetGapEnd(int new_position) {
@@ -67,7 +68,7 @@ void GapBuffer::ResizeGapMemory(int gapSize, int fromIndex) {
 	*/
 	std::vector<char> temp;
 
-	for (int i = 0; i < content.size(); i++) {
+	for (int i = 0; i < content.size() + 1; i++) {
 
 		if (i == fromIndex) {
 			for (int k = fromIndex; k < fromIndex + gapSize; k++) {
@@ -100,12 +101,18 @@ void GapBuffer::ResizeGapMemoryFromBack(int gapSize) {
 void GapBuffer::InsertCharacter(char character) {
 	if (this->gap_size <= 0) {
 		SetGapSize(150); // If the gap is going to be 0 after char insertion, make gap bigger again
-		ResizeGapMemory(150, curr_index);
+		ResizeGapMemory(150, gap_start);
 	}
 
-	// Insert character at start
-	this->content.at(this->gap_start) = character;
+	try {
+		// Insert character at start
+		this->content.at(this->gap_start) = character;
+	}
+	catch (const std::exception& e) {
+		std::cout << e.what(); // information from error printed
+	}
 
+	this->curr_index++; // Increment the cursor index
 	this->gap_start++;
 	this->gap_size--;
 	this->gap_end = this->gap_start + this->gap_size;
