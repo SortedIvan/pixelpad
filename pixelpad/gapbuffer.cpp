@@ -1,6 +1,8 @@
 #include "gapbuffer.h"
 #include <iostream>
 
+const int GAP_RESIZE_BY = 3;
+
 GapBuffer::GapBuffer(std::vector<char> content, int gap_start, int gap_end, int gap_size) {
 	this->content = content;
 	this->gap_start = gap_start;
@@ -46,10 +48,7 @@ void GapBuffer::MoveGapLeft() {
 	catch (const std::exception& e) {
 		std::cout << e.what(); // information from error printed
 	}
-
-
 }
-
 
 // TODO: Fix this, it does not work by 1 index (have to tap twice)
 void GapBuffer::MoveGapRight() {
@@ -106,8 +105,8 @@ void GapBuffer::ResizeGapMemoryFromBack(int gapSize) {
 
 void GapBuffer::InsertCharacter(char character) {
 	if (this->gap_size <= 0) {
-		SetGapSize(150); // If the gap is going to be 0 after char insertion, make gap bigger again
-		ResizeGapMemory(150, gap_start);
+		SetGapSize(GAP_RESIZE_BY); // If the gap is going to be 0 after char insertion, make gap bigger again
+		ResizeGapMemory(GAP_RESIZE_BY, gap_start);
 	}
 
 	try {

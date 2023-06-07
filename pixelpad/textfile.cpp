@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 
+const int GAP_RESIZE_BY = 3;
 
 TextFile::TextFile(std::string document_name, std::string document_path) {
 	this->document_name = document_name;
@@ -14,9 +15,9 @@ TextFile::TextFile(std::string document_name, std::string document_path) {
 
 	if (!file) {
 		gap_buffer.SetContent(content_empty);  // Set to empty content
-		gap_buffer.SetGapSize(150);
+		gap_buffer.SetGapSize(GAP_RESIZE_BY);
 
-		gap_buffer.ResizeGapMemory(150, 0);
+		gap_buffer.ResizeGapMemory(GAP_RESIZE_BY, 0);
 
 		this->gap_buffer = gap_buffer;
 		return;
@@ -26,12 +27,12 @@ TextFile::TextFile(std::string document_name, std::string document_path) {
 
 	gap_buffer.SetContent(content);
 
-	gap_buffer.SetGapSize(150);
+	gap_buffer.SetGapSize(GAP_RESIZE_BY);
 
 	gap_buffer.SetGapStart(content.size());
-	gap_buffer.SetGapEnd((content.size() - 1) + 150);
+	gap_buffer.SetGapEnd((content.size() - 1) + GAP_RESIZE_BY);
 
-	gap_buffer.ResizeGapMemoryFromBack(150);
+	gap_buffer.ResizeGapMemoryFromBack(GAP_RESIZE_BY);
 
 	this->gap_buffer = gap_buffer;
 }
