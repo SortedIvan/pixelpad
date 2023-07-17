@@ -13,12 +13,10 @@ TextFile::TextFile(std::string document_name, std::string document_path) {
 	std::vector<char> content_empty;
 	std::ifstream file(document_path, std::ios::binary); // Open the file to read its content after
 
-	if (!file) {
+	if (!file) { // If the file is empty
 		gap_buffer.SetContent(content_empty);  // Set to empty content
-		gap_buffer.SetGapSize(GAP_RESIZE_BY);
-
-		gap_buffer.ResizeGapMemory(GAP_RESIZE_BY, 0);
-
+		gap_buffer.SetGapSize(GAP_RESIZE_BY); // Set the gap size to the predefined value TODO: Change to dynamic value
+		gap_buffer.ResizeGapMemory(gap_buffer.GetGapSize(), 0); // Populate the array with the gap size from index 0
 		this->gap_buffer = gap_buffer;
 		return;
 	}
@@ -26,9 +24,7 @@ TextFile::TextFile(std::string document_name, std::string document_path) {
 	std::vector<char> content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>()); // Read the content
 
 	gap_buffer.SetContent(content);
-
 	gap_buffer.SetGapSize(GAP_RESIZE_BY);
-
 	gap_buffer.SetGapStart(content.size());
 	gap_buffer.SetGapEnd((content.size() - 1) + GAP_RESIZE_BY);
 

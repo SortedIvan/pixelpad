@@ -36,9 +36,15 @@ void GapBuffer::MoveGapLeft() {
 	// Say you have the array: [a, b, c, d, _, _, _, _] where the gap is represented by _
 	// if you move it one to the left, the resulting array would look like this: [a, b, c, _, _, _, _, d]
 
-	if (this->gap_start == 0) { // Check if moving the gap left would result in below zero
+	if (this->gap_size == 0) {
+		this->gap_end = 0;
+		this->gap_start = 0;
 		return;
 	}
+
+	if (this->gap_start == 0) { // Check if moving the gap left would result in below zero
+		return;
+	} 
 
 	try {
 		content[gap_end] = content[gap_start - 1];
@@ -52,6 +58,12 @@ void GapBuffer::MoveGapLeft() {
 
 // TODO: Fix this, it does not work by 1 index (have to tap twice)
 void GapBuffer::MoveGapRight() {
+
+	if (this->gap_size == 0) {
+		this->gap_end = 0;
+		this->gap_start = 0;
+		return;
+	}
 	if (this->gap_end == (content.size() - 1)) { // Check if going right would exceed the size of the content array
 		return;
 	}
@@ -75,7 +87,6 @@ void GapBuffer::ResizeGapMemory(int gapSize, int fromIndex) {
 	std::vector<char> temp;
 
 	for (int i = 0; i < content.size() + 1; i++) {
-
 		if (i == fromIndex) {
 			for (int k = fromIndex; k < fromIndex + gapSize; k++) {
 				temp.push_back(' ');
@@ -94,17 +105,21 @@ void GapBuffer::ResizeGapMemory(int gapSize, int fromIndex) {
 
 void GapBuffer::ResizeGapMemoryFromBack(int gapSize) {
 
-	int content_size = this->content.size();
-	int content_size_ = content_size + 1 + gapSize;
+	//int content_size = this->content.size();
+	//int content_size_ = content_size + 1 + gapSize;
 
-	for (int i = content_size + 1; i < content_size_; i++) {
+	//for (int i = content_size + 1; i < content_size_; i++) {
+	//	this->content.push_back(' ');
+	//}
+
+	for (int i = gap_start; i < gap_end + 1; i++) {
 		this->content.push_back(' ');
 	}
 }
  
 
 void GapBuffer::InsertCharacter(char character) {
-	if (this->gap_size <= 0) {
+	if (this->gap_size == 0) {
 		SetGapSize(GAP_RESIZE_BY); // If the gap is going to be 0 after char insertion, make gap bigger again
 		ResizeGapMemory(GAP_RESIZE_BY, gap_start);
 	}

@@ -61,6 +61,7 @@ void PrintOutDebug(TextFile& textfile) {
 	std::cout << textfile.gap_buffer.GetGapStart() << " is the gap start" << std::endl;
 	std::cout << textfile.gap_buffer.GetGapEnd() << " is the gap end" << std::endl;
 	std::cout << textfile.gap_buffer.GetGapSize() << " is the gap size" << std::endl;
+	std::cout << textfile.gap_buffer.GetContent().size() << " is the content size" << std::endl;
 
 	for (int i = 0; i < textfile.gap_buffer.GetContent().size(); i++) {
 		if (i == textfile.gap_buffer.GetGapStart()) {
