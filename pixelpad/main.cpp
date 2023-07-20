@@ -17,24 +17,26 @@ int main(int argc, char* argv[])
         // run without file
     }
 
-    std::string filepath = argv[1];
-    std::string extension = "";
-    bool collectExtension = false;
+    //std::string filepath = argv[1];
+    //std::string extension = "";
+    //bool collectExtension = false;
 
-    for (int i = 0; i < filepath.length(); i++) {
-        if (collectExtension) {
-            extension += filepath[i];
-        }
-        if (filepath[i] == '.') {
-            collectExtension = true;
-        }
-    }
+    //for (int i = 0; i < filepath.length(); i++) {
+    //    if (collectExtension) {
+    //        extension += filepath[i];
+    //    }
+    //    if (filepath[i] == '.') {
+    //        collectExtension = true;
+    //    }
+    //}
 
-    if (extension != "txt") { // Check for extension type, only accept .txt files
-        return 1;
-    }
-    
-    std::string base_filename = filepath.substr(filepath.find_last_of("/\\") + 1);
+    //if (extension != "txt") { // Check for extension type, only accept .txt files
+    //    return 1;
+    //}
+    //
+    //std::string base_filename = filepath.substr(filepath.find_last_of("/\\") + 1);
+
+    std::string base_filename, filepath = "";
 
     editor.StartEditorWithFile(base_filename, filepath);
 

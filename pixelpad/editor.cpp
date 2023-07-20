@@ -22,6 +22,8 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	sf::RenderWindow window(sf::VideoMode(1650, 900), "pixelpad");
 	sf::Event e;
 
+	PrintOutDebug(textfile);
+
 	while (window.isOpen()) {
 		while (window.pollEvent(e)) {
 
@@ -65,7 +67,7 @@ void PrintOutDebug(TextFile& textfile) {
 
 	for (int i = 0; i < textfile.gap_buffer.GetContent().size(); i++) {
 		if (i == textfile.gap_buffer.GetGapStart()) {
-			for (int k = i; k < textfile.gap_buffer.GetGapEnd(); i++, k++) {
+			for (int k = i; k < textfile.gap_buffer.GetGapEnd() + 1; i++, k++) {
 				std::cout << "_";
 			}
 		}
