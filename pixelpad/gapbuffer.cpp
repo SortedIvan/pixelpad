@@ -31,47 +31,35 @@ void GapBuffer::SetContent(std::vector<char> content) {
 	this->content = content;
 }
 
-void GapBuffer::MoveGapLeft() {
+void GapBuffer::MoveGapLeft() { 
 	// In order to move the gap to the left, you first have to see if there are any elements that need to be copied to the right
 	// Say you have the array: [a, b, c, d, _, _, _, _] where the gap is represented by _
 	// if you move it one to the left, the resulting array would look like this: [a, b, c, _, _, _, _, d]
 
-	if (this->gap_size == 0) {
-		this->gap_end = 0;
-		this->gap_start = 0;
-		return;
+	if (gap_end == gap_start && gap_size == 1) { // if there's only 1 space left
+		if (gap_start != 0) {
+			content.at(gap_start) = content.at(gap_start - 1);
+			gap_start--;
+			gap_end--;
+			return;
+		}
 	}
-
-	if (this->gap_start == 0) { // Check if moving the gap left would result in below zero
-		return;
-	} 
-
-	try {
-		content[gap_end] = content[gap_start - 1];
-		this->gap_start = gap_start - 1;
-		this->gap_end = gap_end - 1;
-	}
-	catch (const std::exception& e) {
-		std::cout << e.what(); // information from error printed
+	
+	if (gap_start != 0) {
+		content.at(gap_end) = content.at(gap_start - 1);
+		gap_start--;
+		gap_end--;
 	}
 }
 
 // TODO: Fix this, it does not work by 1 index (have to tap twice)
 void GapBuffer::MoveGapRight() {
-
-	if (this->gap_size == 0) {
-		this->gap_end = 0;
-		this->gap_start = 0;
-		return;
+	if (gap_end != content.size() - 1) // the gap end is not located at the end 
+	{
+		content.at(gap_start) = content.at(gap_end + 1);
+		gap_end++;
+		gap_start++;
 	}
-	if (this->gap_end == (content.size() - 1)) { // Check if going right would exceed the size of the content array
-		return;
-	}
-
-	content[gap_start] = content[gap_end + 1]; // Move the element on the right of the gap to the start of the gap
-
-	this->gap_end = gap_end + 1;
-	this->gap_start = gap_start + 1;
 }
 
 
@@ -101,33 +89,9 @@ void GapBuffer::ResizeGapMemory(int gapSize, int fromIndex) {
 	}
 	
 	this->content = temp;
-
-	//for (int i = 0; i < content.size() + 1; i++) {
-	//	if (i == fromIndex) {
-	//		for (int k = fromIndex; k < fromIndex + gapSize; k++) {
-	//			temp.push_back(' ');
-	//		}
-	//	}
-	//	else {
-	//		temp.push_back(content[i]);
-	//	}
-	//}
-
-	//this->gap_start = fromIndex;
-	//this->gap_end = fromIndex + gapSize;
-
-	//this->content = temp;
 }
 
-void GapBuffer::ResizeGapMemoryFromBack(int gapSize) {
-
-	//int content_size = this->content.size();
-	//int content_size_ = content_size + 1 + gapSize;
-
-	//for (int i = content_size + 1; i < content_size_; i++) {
-	//	this->content.push_back(' ');
-	//}
-
+void GapBuffer::ResizeGapMemoryFromBack() {
 	for (int i = gap_start; i < gap_end + 1; i++) {
 		this->content.push_back(' ');
 	}
@@ -135,23 +99,35 @@ void GapBuffer::ResizeGapMemoryFromBack(int gapSize) {
  
 
 void GapBuffer::InsertCharacter(char character) {
-	if (this->gap_size == 1 && this->gap_start + 1 == content.size()) {// gap start is at the end of the sequence && 1 space remaining
-		this->content.at(this->gap_start) = character; // Insert the character at the last space
-		this->gap_size--; // Make gap size = 0;
-		this->gap_start++; // Move the gap start and gap end at the new location
-		SetGapSize(GAP_RESIZE_BY);
-		SetGapEnd(this->gap_start + (this->gap_size - 1));
-		ResizeGapMemoryFromBack(GAP_RESIZE_BY);
-		return;
-	}
-	else if (gap_size == 1) { // TODO: Problem here -> 1 character gets set to the null char 
-		this->content.at(this->gap_start) = character; // Insert the character at the last space
-		this->gap_size--; // Make gap size = 0;
-		this->gap_start++; // Move the gap start and gap end at the new location
-		SetGapSize(GAP_RESIZE_BY);
-		SetGapEnd(this->gap_start + (this->gap_size - 1));
-		ResizeGapMemory(GAP_RESIZE_BY, gap_start);
-		return;
+	//if (this->gap_size == 1 && this->gap_start + 1 == content.size()) {// gap start is at the end of the sequence && 1 space remaining
+	//	this->content.at(this->gap_start) = character; // Insert the character at the last space
+	//	this->gap_size--; // Make gap size = 0;
+	//	this->gap_start++; // Move the gap start and gap end at the new location
+	//	SetGapSize(GAP_RESIZE_BY);
+	//	SetGapEnd(this->gap_start + (this->gap_size - 1));
+	//	ResizeGapMemoryFromBack();
+	//	return;
+	//}
+	//else if (gap_size == 1) { // TODO: Problem here -> 1 character gets set to the null char 
+	//	this->content.at(this->gap_start) = character; // Insert the character at the last space
+	//	this->gap_size--; // Make gap size = 0;
+	//	this->gap_start++; // Move the gap start and gap end at the new location
+	//	SetGapSize(GAP_RESIZE_BY);
+	//	SetGapEnd(this->gap_start + (this->gap_size - 1));
+	//	ResizeGapMemory(GAP_RESIZE_BY, gap_start);
+	//	return;
+	//}
+		// todo - resizing
+	if (gap_size == 1) {
+		if (gap_start == content.size() - 1) { // When the gap_start is located at the end and the size == 1, we resize from back
+			content.at(gap_start) = character; // Set the character at the gap_start
+			gap_size--; // Make the gap size equal to 0
+			SetGapSize(GAP_RESIZE_BY); // Resize the gap size by the necessary amount (TODO: Make dynamic value)
+			gap_start = gap_start + 1; // Resize the gap start by 1
+			gap_end = gap_end + gap_size; // Set the gap end to the correct value
+			ResizeGapMemoryFromBack(); // Finally, resize from the back of the buffer
+			return;
+		}
 	}
 
 	try {

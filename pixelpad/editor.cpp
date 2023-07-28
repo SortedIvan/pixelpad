@@ -66,8 +66,9 @@ void PrintOutDebug(TextFile& textfile) {
 	std::cout << textfile.gap_buffer.GetContent().size() << " is the content size" << std::endl;
 
 	for (int i = 0; i < textfile.gap_buffer.GetContent().size(); i++) {
+		int size = textfile.gap_buffer.GetGapSize() + i;
 		if (i == textfile.gap_buffer.GetGapStart()) {
-			for (int k = i; k < textfile.gap_buffer.GetGapEnd() + 1; i++, k++) {
+			for (int k = i; k < size; i++, k++) {
 				std::cout << "_";
 			}
 		}
@@ -83,5 +84,6 @@ void HandleLeftRightKeys(sf::Event& e, TextFile& textfile) {
 		PrintOutDebug(textfile);
 	if (e.key.code == sf::Keyboard::Right)
 		textfile.gap_buffer.MoveGapRight();
+		PrintOutDebug(textfile);
 }
 

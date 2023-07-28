@@ -29,7 +29,7 @@ TextFile::TextFile(std::string document_name, std::string document_path) {
 	gap_buffer.SetGapSize(GAP_RESIZE_BY);
 	gap_buffer.SetGapStart(content.size());
 	gap_buffer.SetGapEnd(gap_buffer.GetGapStart() + (gap_buffer.GetGapSize() - 1));
-	gap_buffer.ResizeGapMemoryFromBack(GAP_RESIZE_BY);
+	gap_buffer.ResizeGapMemoryFromBack();
 
 	this->gap_buffer = gap_buffer;
 }
