@@ -8,7 +8,7 @@
 void HandleUserInput(sf::Event& event, TextFile& textfile);
 void PrintOutDebug(TextFile& textfile);
 void HandleLeftRightKeys(sf::Event& e, TextFile& textfile);
-
+void HandleDelete(sf::Event& e, TextFile& textfile);
 
 int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 {
@@ -31,6 +31,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 			if (e.type == sf::Event::TextEntered) {
 				if (e.text.unicode < 128) {
 					HandleUserInput(e, textfile);
+					HandleDelete(e, textfile);
 					PrintOutDebug(textfile);
 				}
 
@@ -55,6 +56,12 @@ void HandleUserInput(sf::Event& event, TextFile& textfile) {
 	if (event.text.unicode != '\b' && event.text.unicode != 13 && event.text.unicode != '37' && event.text.unicode != '39' && !sf::Keyboard::isKeyPressed(sf::Keyboard::LControl))
 	{
 		textfile.gap_buffer.InsertCharacter(event.text.unicode);
+	}
+}
+
+void HandleDelete(sf::Event& e, TextFile& textfile) {
+	if (e.text.unicode == '\b') {
+		textfile.gap_buffer.DeleteCharacter();
 	}
 }
 

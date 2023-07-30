@@ -128,7 +128,14 @@ void GapBuffer::InsertCharacter(char character) {
 
 	this->gap_start++;
 	this->gap_size--;
-	//this->gap_end = this->gap_start + (this->gap_size - 1);
+}
+
+void GapBuffer::DeleteCharacter() {
+	if (gap_start != 0) {
+		content.at(gap_start - 1) = ' ';
+		gap_start--;
+		gap_size++;
+	}
 }
 
 

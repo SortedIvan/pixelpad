@@ -27,6 +27,7 @@ class GapBuffer {
 		void MoveIndexRight();
 
 		void InsertCharacter(char character);
+		void DeleteCharacter();
 		
 		std::vector<char> GetContent();
 		void SetContent(std::vector<char> content);
