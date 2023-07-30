@@ -30,7 +30,7 @@ class GapBuffer {
 		
 		std::vector<char> GetContent();
 		void SetContent(std::vector<char> content);
-		void ResizeGapMemory(int gapSize, int fromIndex);
+		void ResizeGapMemory();
 		void ResizeGapMemoryFromBack();
 
 		int GetGapStart();
