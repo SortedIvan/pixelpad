@@ -9,6 +9,7 @@ GapBuffer::GapBuffer(std::vector<char> content, int gap_start, int gap_end, int 
 	this->gap_end = gap_end;
 	this->gap_size = gap_size;
 	this->curr_index = 0;
+
 }
 
 void GapBuffer::SetGapEnd(int new_position) {
@@ -94,7 +95,6 @@ void GapBuffer::ResizeGapMemoryFromBack() {
 		this->content.push_back(' ');
 	}
 }
- 
 
 void GapBuffer::InsertCharacter(char character) {
 	if (gap_size == 1) {
@@ -153,6 +153,14 @@ void GapBuffer::MoveIndexRight() {
 	}
 
 	curr_index++;
+}
+
+void GapBuffer::TurnOffInsertMode() {
+	this->insert_mode = false;
+}
+
+void GapBuffer::TurnOnInsertMode() {
+	this->insert_mode = true;
 }
 
 int GapBuffer::GetGapStart() {

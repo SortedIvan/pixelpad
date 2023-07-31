@@ -150,6 +150,9 @@
     <ClInclude Include="gapbuffer.h" />
     <ClInclude Include="textfile.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Font Include="8bitfont.ttf" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

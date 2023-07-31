@@ -11,7 +11,8 @@ class GapBuffer {
 		int gap_end;
 		int gap_size;
 		int curr_index;
-
+		int line_amount;
+		bool insert_mode = false;
 
 	public:
 		GapBuffer(std::vector<char> content, int gap_start, int gap_end, int gap_size);
@@ -25,6 +26,9 @@ class GapBuffer {
 
 		void MoveIndexLeft();
 		void MoveIndexRight();
+
+		void TurnOnInsertMode();
+		void TurnOffInsertMode();
 
 		void InsertCharacter(char character);
 		void DeleteCharacter();
