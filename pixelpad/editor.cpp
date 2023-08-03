@@ -12,7 +12,7 @@ void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text);
 void TryLoadFont(sf::Font& font, std::string path);
 void ResizeView(const sf::RenderWindow& window, sf::View& view);
 void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window);
-void UpdateTextFromGapBuffer(sf::Text& text, const std::vector<char>& gap_buffer);
+void UpdateTextFromGapBuffer(sf::Text& text, TextFile& textfile);
 
 static const float DEFAULT_SCREEN_WIDTH = 1024.f;
 static const float DEFAULT_SCREEN_HEIGHT = 900.f;
@@ -104,7 +104,7 @@ void HandleUserInput(sf::Event& event, TextFile& textfile, sf::Text& text)
 	if (event.text.unicode != '\b' && event.text.unicode != 13 && event.text.unicode != '37' && event.text.unicode != '39' && !sf::Keyboard::isKeyPressed(sf::Keyboard::LControl))
 	{
 		textfile.gap_buffer.InsertCharacter(event.text.unicode);
-		UpdateTextFromGapBuffer(text, textfile.gap_buffer.GetContent());
+		UpdateTextFromGapBuffer(text, textfile);
 	}
 }
 
@@ -113,7 +113,7 @@ void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text)
 	if (e.text.unicode == '\b')
 	{
 		textfile.gap_buffer.DeleteCharacter();
-		UpdateTextFromGapBuffer(text, textfile.gap_buffer.GetContent());
+		UpdateTextFromGapBuffer(text, textfile);
 	}
 }
 
@@ -179,8 +179,7 @@ void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window)
 }
 
 // Function to update the sf::Text object based on the gap_buffer content
-void UpdateTextFromGapBuffer(sf::Text& text, const std::vector<char>& gap_buffer)
+void UpdateTextFromGapBuffer(sf::Text& text, TextFile& textfile)
 {
-	// Convert the gap_buffer vector to a string and set it as the text's string
-	text.setString(std::string(gap_buffer.begin(), gap_buffer.end()));
+
 }

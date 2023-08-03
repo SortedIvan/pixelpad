@@ -63,7 +63,6 @@ void GapBuffer::MoveGapRight() {
 	}
 }
 
-
 void GapBuffer::ResizeGapMemory() {
 	/*
 		1) Originally, the array of chars is: [a, b, c, d, _, e ,f]
@@ -78,7 +77,7 @@ void GapBuffer::ResizeGapMemory() {
 	for (int i = 0; i < content.size(); i++) {
 		if (gap_start == i) { // if the index is where we need to expand, make the gap bigger
 			for (int k = 0; k < GAP_RESIZE_BY; k++) {
-				temp.push_back(' ');
+				temp.push_back('\0');
 			}
 			temp.push_back(content.at(i)); // finally, add the overwritten character from the gap
 		}
@@ -92,7 +91,7 @@ void GapBuffer::ResizeGapMemory() {
 
 void GapBuffer::ResizeGapMemoryFromBack() {
 	for (int i = gap_start; i < gap_end + 1; i++) {
-		this->content.push_back(' ');
+		this->content.push_back('\0');
 	}
 }
 
@@ -132,7 +131,7 @@ void GapBuffer::InsertCharacter(char character) {
 
 void GapBuffer::DeleteCharacter() {
 	if (gap_start != 0) {
-		content.at(gap_start - 1) = ' ';
+		content.at(gap_start - 1) = '\0';
 		gap_start--;
 		gap_size++;
 	}
