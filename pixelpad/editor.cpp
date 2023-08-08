@@ -13,15 +13,27 @@ void TryLoadFont(sf::Font& font, std::string path);
 void ResizeView(const sf::RenderWindow& window, sf::View& view);
 void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window);
 void UpdateTextFromGapBuffer(sf::Text& text, TextFile& textfile);
-void HandleEnter(sf::Event& e, sf::Text& text, TextFile& textfile);
+void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines, TextFile& textfile, sf::Font& text_font, sf::Vector2f offset);
 void HandleUpDownKeys(sf::Event& e, TextFile& textfile);
 void DrawAllTextLines(std::vector<sf::Text>& text_lines, sf::RenderWindow& window);
 sf::Text CreateInitialTextLine(sf::Font& font, const sf::Vector2f& offset, int multiplier, std::string content);
-
+void HighlightTypingPosition(sf::Text& current_text_line, sf::Font& font, int current_line_index, sf::RenderWindow& window);
 
 
 static const float DEFAULT_SCREEN_WIDTH = 1024.f;
 static const float DEFAULT_SCREEN_HEIGHT = 900.f;
+static const sf::Color transparent_hightlight(255, 255, 255, 30); // RGBA(255, 255, 255, 30)
+static const sf::Color full_highlight(255, 255, 255, 150); // RGBA(255, 255, 255, 150)
+
+
+//<------------------ Variables that control the tick (cursor) on the screen --------------->
+static const int TICK_COUNTDOWN = 5000;
+static const int USER_TYPED_TICK_CD = 2000;
+static int tick_counter = 0;
+static bool tick_type = true;
+static bool user_typed_tick = false;
+static int user_typed_tick_counter = 0;
+
 
 int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 {
@@ -52,10 +64,10 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	std::vector<std::vector<char>> temp_lines = textfile.gap_buffer.GetLines();
 
 	// Initialize the text objects for each line in the opened file
-	for (int i = 0; i < temp_lines.size();i++) {
+	for (int i = 0; i < temp_lines.size();++i) {
 
 		// initially loop through all of the content to display it and fill the text files
-		for (int k = 0; k < temp_lines.at(i).size(); k++) {
+		for (int k = 0; k < temp_lines.at(i).size(); ++k) {
 
 			if (temp_lines.at(i).at(k) != '\0') {
 				temp_content_string.push_back(temp_lines.at(i).at(k));
@@ -77,7 +89,6 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 				if (e.text.unicode < 128) {
 					HandleUserInput(e, textfile, text_lines);
 					HandleDelete(e, textfile, text);
-					//PrintOutDebug(textfile);
 				}
 			}
 			// <------------- handle cursor movement ---------------------->
@@ -85,8 +96,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 			{
 				HandleLeftRightKeys(e, textfile);
 				HandleUpDownKeys(e, textfile);
-				HandleEnter(e, text, textfile);
-				//PrintOutDebug(textfile);
+				HandleEnter(e, text_lines, textfile,text_font,text_offset);
 			}
 
 			if (e.type == sf::Event::Resized)
@@ -111,6 +121,8 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 		window.setView(view);
 
 		// --------- draw on the screen ---------
+		int current_line = textfile.gap_buffer.GetCurrentLine();
+		HighlightTypingPosition(text_lines[current_line], text_font, textfile.gap_buffer.GetGapStart(), window);
 		DrawAllTextLines(text_lines, window);
 
 		// --------- display on the screen --------
@@ -144,6 +156,8 @@ void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>
 
 		text_lines[current_line].setString(temp_line);
 
+		user_typed_tick = true;
+		user_typed_tick_counter = USER_TYPED_TICK_CD;
 	}
 }
 
@@ -180,6 +194,8 @@ void HandleUpDownKeys(sf::Event& e, TextFile& textfile) {
 		textfile.gap_buffer.MoveLineUp();
 	}
 
+	user_typed_tick = true;
+	user_typed_tick_counter = USER_TYPED_TICK_CD;
 	//PrintOutDebug(textfile);
 }
 
@@ -193,9 +209,15 @@ void HandleLeftRightKeys(sf::Event& e, TextFile& textfile)
 	//PrintOutDebug(textfile);
 }
 
-void HandleEnter(sf::Event& e, sf::Text& text, TextFile& textfile) {
+void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines, TextFile& textfile, sf::Font& text_font, sf::Vector2f offset) {
 	if (e.key.code == sf::Keyboard::Enter) {
 		textfile.gap_buffer.InsertNewLine();
+
+		// Do re-arranging of all lines here with the offset & add a new line to the vector
+
+
+		//int current_line = textfile.gap_buffer.GetCurrentLine();
+		//text_lines.insert(text_lines.begin() + current_line, );
 	}
 }
 
@@ -223,6 +245,48 @@ void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window)
 	int roundedOffsetY = static_cast<int>(textOffset.y);
 
 	text.setPosition(roundedOffsetX, roundedOffsetY);
+}
+
+void HighlightTypingPosition(sf::Text& current_text_line,sf::Font& font, int current_line_index, sf::RenderWindow& window) {
+
+	sf::RectangleShape rect;
+	rect.setPosition(current_text_line.findCharacterPos(current_line_index).x +
+		font.getGlyph('\0', 20, 0).bounds.left, current_text_line.getGlobalBounds().top +
+		(current_text_line.getGlobalBounds().height + font.getGlyph('\0', 20, 0).bounds.top));
+	rect.setSize(sf::Vector2f(font.getGlyph('\0', 20, 0).bounds.width, font.getGlyph('\0', 20, 0).bounds.height));
+
+	if (user_typed_tick) {
+		
+		if (user_typed_tick_counter == 0) {
+			user_typed_tick = false;
+		}
+		else if (user_typed_tick_counter != 0) {
+
+			rect.setFillColor(full_highlight);
+			window.draw(rect);
+
+			user_typed_tick_counter--;
+			return;
+		}
+	}
+
+	if (tick_counter == TICK_COUNTDOWN) {
+		tick_type = !tick_type;
+		tick_counter = 0;
+	}
+
+	if (tick_type) {
+		rect.setFillColor(transparent_hightlight);
+		window.draw(rect);
+		tick_counter++;
+		return;
+	}
+	else {
+		rect.setFillColor(full_highlight);
+		window.draw(rect);
+		tick_counter++;
+	}
+
 }
 
 // Function to update the sf::Text object based on the gap_buffer content
