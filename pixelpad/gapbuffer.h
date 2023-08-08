@@ -5,41 +5,47 @@
 
 class GapBuffer {
 
-	private:
-		std::vector<char> content;
-		int gap_start;
-		int gap_end;
-		int gap_size;
-		int curr_index;
-		int line_amount;
-		bool insert_mode = false;
+private:
+	std::vector<std::vector<char>> lines;
+	std::vector<int> gap_starts;
+	std::vector<int> gap_ends;
+	std::vector<int> gap_sizes;
+	std::vector<int> newline_positions;
+	int current_line = 0;
 
-	public:
-		GapBuffer(std::vector<char> content, int gap_start, int gap_end, int gap_size);
-		GapBuffer() : gap_start(0), gap_end(0), gap_size(0), curr_index(0) {} // Default constructor initialization
-		void SetGapStart(int new_position);
-		void SetGapEnd(int new_position);
-		void SetGapSize(int new_gap_size);
+public:
+	GapBuffer(const std::vector<char>& content);
+	GapBuffer(); // Default constructor initialization
+	void SetGapStart(int new_position);
+	void SetGapEnd(int new_position);
+	void SetGapSize(int new_gap_size);
 
-		void MoveGapLeft();
-		void MoveGapRight();
+	void MoveGapLeft();
+	void MoveGapRight();
+	void MoveLineUp();
+	void MoveLineDown();
 
-		void MoveIndexLeft();
-		void MoveIndexRight();
+	void InsertNewLine();
 
-		void TurnOnInsertMode();
-		void TurnOffInsertMode();
 
-		void InsertCharacter(char character);
-		void DeleteCharacter();
-		
-		std::vector<char> GetContent();
-		void SetContent(std::vector<char> content);
-		void ResizeGapMemory();
-		void ResizeGapMemoryFromBack();
+	std::vector<std::vector<char>> GetLines();
 
-		int GetGapStart();
-		int GetGapEnd();
-		int GetGapSize();
+	void InsertCharacter(char character);
+	void DeleteCharacter();
+
+	void FillBuffersFromContent(const std::vector<char>& content);
+	void ResizeGapMemory();
+	void ResizeGapMemoryFromBack();
+
+	int GetCurrentLine();
+	void SetCurrentLine(int new_current_line);
+
+	int GetGapStart();
+	int GetGapEnd();
+	int GetGapSize();
+
+	std::vector<int> GetGapSizes();
+	std::vector<int> GetGapStarts();
+	std::vector<int> GetGapEnds();
 };
 

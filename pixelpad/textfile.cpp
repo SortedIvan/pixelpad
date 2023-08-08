@@ -3,13 +3,12 @@
 #include <iostream>
 #include <fstream>
 
-const int GAP_RESIZE_BY = 3;
+const int GAP_RESIZE_BY = 200;
 
 TextFile::TextFile(std::string document_name, std::string document_path) {
 	this->document_name = document_name;
 	this->document_path = document_path;
 	
-	GapBuffer gap_buffer;
 	//std::vector<char> content_empty;
 	//std::ifstream file(document_path, std::ios::binary); // Open the file to read its content after
 
@@ -23,14 +22,15 @@ TextFile::TextFile(std::string document_name, std::string document_path) {
 
 	//std::vector<char> content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>()); // Read the content
 
-	std::vector<char> content = { 'a','b','c' };
+	//std::vector<char> content = { 'a','b','c' };
 
-	gap_buffer.SetContent(content);
-	gap_buffer.SetGapSize(GAP_RESIZE_BY);
-	gap_buffer.SetGapStart(content.size());
-	gap_buffer.SetGapEnd(gap_buffer.GetGapStart() + (gap_buffer.GetGapSize() - 1));
-	gap_buffer.ResizeGapMemoryFromBack();
+	std::vector<char> content {
+		'a', 'b', 'c', 'd', 'e',
+			'\n', 'a', 'b', 'c', 'd',
+			'\n', 'a',
+			'\n'};
 
+	GapBuffer gap_buffer(content);
 	this->gap_buffer = gap_buffer;
 }
 

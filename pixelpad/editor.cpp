@@ -13,6 +13,9 @@ void TryLoadFont(sf::Font& font, std::string path);
 void ResizeView(const sf::RenderWindow& window, sf::View& view);
 void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window);
 void UpdateTextFromGapBuffer(sf::Text& text, TextFile& textfile);
+void HandleEnter(sf::Event& e, sf::Text& text, TextFile& textfile);
+void HandleUpDownKeys(sf::Event& e, TextFile& textfile);
+sf::Text CreateTextNewLine(sf::Font& font);
 
 static const float DEFAULT_SCREEN_WIDTH = 1024.f;
 static const float DEFAULT_SCREEN_HEIGHT = 900.f;
@@ -36,7 +39,19 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	sf::View view(sf::Vector2f(DEFAULT_SCREEN_WIDTH / 2.f, DEFAULT_SCREEN_HEIGHT / 2.f),
 		sf::Vector2f(DEFAULT_SCREEN_WIDTH, DEFAULT_SCREEN_HEIGHT));
 
+	sf::Vector2f text_offset(50.f, 20.f);
+
 	TryLoadFont(text_font, "./8bitfont.ttf"); // Loads the font into the system -> TODO: Move this to happen only once in the main file
+
+	std::vector<sf::Text> text_lines;
+
+	// Initialize the text objects for each line in the opened file
+	for (int i = 0; i < textfile.gap_buffer.GetLines().size();i++) {
+		text_lines.push_back(CreateTextNewLine(text_font));
+	}
+
+
+
 
 	//------- Text customization ---------
 	text.setCharacterSize(20);
@@ -63,6 +78,9 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 			if (e.type == sf::Event::KeyPressed)
 			{
 				HandleLeftRightKeys(e, textfile);
+				HandleUpDownKeys(e, textfile);
+				HandleEnter(e, text, textfile);
+				PrintOutDebug(textfile);
 			}
 
 			if (e.type == sf::Event::Resized)
@@ -70,7 +88,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 
 				// When the window is resized, update the view to match the new size
 				view.reset(sf::FloatRect(0.f, 0.f, static_cast<float>(window.getSize().x), static_cast<float>(window.getSize().y)));
-				ResizeTextRelativeToScreen(text, window);
+				
 			}
 
 			if (e.type == sf::Event::Closed)
@@ -101,7 +119,9 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 void HandleUserInput(sf::Event& event, TextFile& textfile, sf::Text& text)
 {
 	// If the unicode is not backspace, enter, left or right arrow
-	if (event.text.unicode != '\b' && event.text.unicode != 13 && event.text.unicode != '37' && event.text.unicode != '39' && !sf::Keyboard::isKeyPressed(sf::Keyboard::LControl))
+	if (event.text.unicode != '\b' && event.text.unicode != 13 && event.text.unicode != '37' && 
+		event.text.unicode != '39' && !sf::Keyboard::isKeyPressed(sf::Keyboard::LControl) &&
+		event.key.code != sf::Keyboard::Down && event.key.code != sf::Keyboard::Up)
 	{
 		textfile.gap_buffer.InsertCharacter(event.text.unicode);
 		UpdateTextFromGapBuffer(text, textfile);
@@ -119,27 +139,29 @@ void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text)
 
 void PrintOutDebug(TextFile& textfile)
 {
-	std::cout << std::endl;
-	std::cout << textfile.gap_buffer.GetGapStart() << " is the gap start" << std::endl;
-	std::cout << textfile.gap_buffer.GetGapEnd() << " is the gap end" << std::endl;
-	std::cout << textfile.gap_buffer.GetGapSize() << " is the gap size" << std::endl;
-	std::cout << textfile.gap_buffer.GetContent().size() << " is the content size" << std::endl;
+	for (int i = 0; i < textfile.GetGapBuffer().GetLines().size(); i++) {
+		for (int k = 0; k < textfile.GetGapBuffer().GetLines()[i].size(); k++) {
 
-	for (int i = 0; i < textfile.gap_buffer.GetContent().size(); i++)
-	{
-		int size = textfile.gap_buffer.GetGapSize() + i;
-		if (i == textfile.gap_buffer.GetGapStart())
-		{
-			for (int k = i; k < size; i++, k++)
-			{
+			if (textfile.GetGapBuffer().GetLines()[i][k] == '\0') {
 				std::cout << "_";
 			}
-		}
-		else
-		{
-			std::cout << textfile.gap_buffer.GetContent().at(i);
-		}
+			else {
+				std::cout << textfile.GetGapBuffer().GetLines()[i][k];
+			}		}
+		std::cout << std::endl;
 	}
+}
+
+void HandleUpDownKeys(sf::Event& e, TextFile& textfile) {
+	if (e.key.code == sf::Keyboard::Down) {
+		textfile.gap_buffer.MoveLineDown();
+	}
+
+	if (e.key.code == sf::Keyboard::Up) {
+		textfile.gap_buffer.MoveLineUp();
+	}
+
+	PrintOutDebug(textfile);
 }
 
 void HandleLeftRightKeys(sf::Event& e, TextFile& textfile)
@@ -150,6 +172,12 @@ void HandleLeftRightKeys(sf::Event& e, TextFile& textfile)
 	if (e.key.code == sf::Keyboard::Right)
 		textfile.gap_buffer.MoveGapRight();
 	PrintOutDebug(textfile);
+}
+
+void HandleEnter(sf::Event& e, sf::Text& text, TextFile& textfile) {
+	if (e.key.code == sf::Keyboard::Enter) {
+		textfile.gap_buffer.InsertNewLine();
+	}
 }
 
 void TryLoadFont(sf::Font& font, std::string path)
@@ -163,8 +191,8 @@ void TryLoadFont(sf::Font& font, std::string path)
 
 void ResizeView(const sf::RenderWindow& window, sf::View& view)
 {
-	float aspectRatio = float(window.getSize().x) / float(window.getSize().y);
-	view.setSize(DEFAULT_SCREEN_HEIGHT * aspectRatio, DEFAULT_SCREEN_HEIGHT);
+	float aspect_ratio = float(window.getSize().x) / float(window.getSize().y);
+	view.setSize(DEFAULT_SCREEN_HEIGHT * aspect_ratio, DEFAULT_SCREEN_HEIGHT);
 }
 
 void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window)
@@ -181,5 +209,20 @@ void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window)
 // Function to update the sf::Text object based on the gap_buffer content
 void UpdateTextFromGapBuffer(sf::Text& text, TextFile& textfile)
 {
-
+	
 }
+
+sf::Text CreateTextNewLine(sf::Font& font, const sf::Vector2f& offset, int multiplier) {
+
+	// multiplier starts at 0, so increase by 1
+
+	sf::Text text;
+	text.setCharacterSize(20);
+	text.setFont(font);
+	text.setString("");
+	text.setFillColor(sf::Color::White);
+
+	return text;
+}
+
+
