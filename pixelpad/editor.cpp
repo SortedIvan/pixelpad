@@ -5,7 +5,7 @@
 #include <iostream>
 #include <conio.h>
 
-void HandleUserInput(sf::Event& event, TextFile& textfile, sf::Text& text);
+void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines);
 void PrintOutDebug(TextFile& textfile);
 void HandleLeftRightKeys(sf::Event& e, TextFile& textfile);
 void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text);
@@ -15,7 +15,10 @@ void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window);
 void UpdateTextFromGapBuffer(sf::Text& text, TextFile& textfile);
 void HandleEnter(sf::Event& e, sf::Text& text, TextFile& textfile);
 void HandleUpDownKeys(sf::Event& e, TextFile& textfile);
-sf::Text CreateTextNewLine(sf::Font& font);
+void DrawAllTextLines(std::vector<sf::Text>& text_lines, sf::RenderWindow& window);
+sf::Text CreateInitialTextLine(sf::Font& font, const sf::Vector2f& offset, int multiplier, std::string content);
+
+
 
 static const float DEFAULT_SCREEN_WIDTH = 1024.f;
 static const float DEFAULT_SCREEN_HEIGHT = 900.f;
@@ -45,21 +48,24 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 
 	std::vector<sf::Text> text_lines;
 
+	std::string temp_content_string;
+	std::vector<std::vector<char>> temp_lines = textfile.gap_buffer.GetLines();
+
 	// Initialize the text objects for each line in the opened file
-	for (int i = 0; i < textfile.gap_buffer.GetLines().size();i++) {
-		text_lines.push_back(CreateTextNewLine(text_font));
+	for (int i = 0; i < temp_lines.size();i++) {
+
+		// initially loop through all of the content to display it and fill the text files
+		for (int k = 0; k < temp_lines.at(i).size(); k++) {
+
+			if (temp_lines.at(i).at(k) != '\0') {
+				temp_content_string.push_back(temp_lines.at(i).at(k));
+			}
+		}
+
+		text_lines.push_back(CreateInitialTextLine(text_font, text_offset, i, temp_content_string));
+
+		temp_content_string = ""; // reset the temp string
 	}
-
-
-
-
-	//------- Text customization ---------
-	text.setCharacterSize(20);
-	text.setFont(text_font);
-	text.setString("Test");
-	text.setFillColor(sf::Color::White);
-	ResizeTextRelativeToScreen(text, window);
-
 
 	while (window.isOpen())
 	{
@@ -69,9 +75,9 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 			if (e.type == sf::Event::TextEntered)
 			{
 				if (e.text.unicode < 128) {
-					HandleUserInput(e, textfile, text);
+					HandleUserInput(e, textfile, text_lines);
 					HandleDelete(e, textfile, text);
-					PrintOutDebug(textfile);
+					//PrintOutDebug(textfile);
 				}
 			}
 			// <------------- handle cursor movement ---------------------->
@@ -80,7 +86,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 				HandleLeftRightKeys(e, textfile);
 				HandleUpDownKeys(e, textfile);
 				HandleEnter(e, text, textfile);
-				PrintOutDebug(textfile);
+				//PrintOutDebug(textfile);
 			}
 
 			if (e.type == sf::Event::Resized)
@@ -105,7 +111,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 		window.setView(view);
 
 		// --------- draw on the screen ---------
-		window.draw(text);
+		DrawAllTextLines(text_lines, window);
 
 		// --------- display on the screen --------
 		window.display();
@@ -116,7 +122,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 }
 
 
-void HandleUserInput(sf::Event& event, TextFile& textfile, sf::Text& text)
+void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines)
 {
 	// If the unicode is not backspace, enter, left or right arrow
 	if (event.text.unicode != '\b' && event.text.unicode != 13 && event.text.unicode != '37' && 
@@ -124,7 +130,20 @@ void HandleUserInput(sf::Event& event, TextFile& textfile, sf::Text& text)
 		event.key.code != sf::Keyboard::Down && event.key.code != sf::Keyboard::Up)
 	{
 		textfile.gap_buffer.InsertCharacter(event.text.unicode);
-		UpdateTextFromGapBuffer(text, textfile);
+		
+		int current_line = textfile.gap_buffer.GetCurrentLine();
+
+		std::vector<char> changed_line = textfile.gap_buffer.GetLines()[current_line];
+		std::string temp_line;
+
+		for (int i = 0; i < changed_line.size(); i++) {
+			if (changed_line[i] != '\0') {
+				temp_line.push_back(changed_line[i]);
+			}
+		}
+
+		text_lines[current_line].setString(temp_line);
+
 	}
 }
 
@@ -161,17 +180,17 @@ void HandleUpDownKeys(sf::Event& e, TextFile& textfile) {
 		textfile.gap_buffer.MoveLineUp();
 	}
 
-	PrintOutDebug(textfile);
+	//PrintOutDebug(textfile);
 }
 
 void HandleLeftRightKeys(sf::Event& e, TextFile& textfile)
 {
 	if (e.key.code == sf::Keyboard::Left)
 		textfile.gap_buffer.MoveGapLeft();
-	PrintOutDebug(textfile);
+	//PrintOutDebug(textfile);
 	if (e.key.code == sf::Keyboard::Right)
 		textfile.gap_buffer.MoveGapRight();
-	PrintOutDebug(textfile);
+	//PrintOutDebug(textfile);
 }
 
 void HandleEnter(sf::Event& e, sf::Text& text, TextFile& textfile) {
@@ -212,17 +231,29 @@ void UpdateTextFromGapBuffer(sf::Text& text, TextFile& textfile)
 	
 }
 
-sf::Text CreateTextNewLine(sf::Font& font, const sf::Vector2f& offset, int multiplier) {
+sf::Text CreateInitialTextLine(sf::Font& font, const sf::Vector2f& offset, int multiplier, std::string content) {
 
 	// multiplier starts at 0, so increase by 1
+
+	multiplier += 1;
+
+	int offset_x = static_cast<int>(offset.x);
+	int offset_y = static_cast<int>(offset.y * multiplier);
 
 	sf::Text text;
 	text.setCharacterSize(20);
 	text.setFont(font);
 	text.setString("");
 	text.setFillColor(sf::Color::White);
+	text.setPosition(sf::Vector2f(offset_x, offset_y));
+	text.setString(content);
 
 	return text;
 }
 
-
+void DrawAllTextLines(std::vector<sf::Text>& text_lines, sf::RenderWindow& window) {
+	for (int i = 0; i < text_lines.size(); i++) 
+	{
+		window.draw(text_lines.at(i));
+	}
+}
