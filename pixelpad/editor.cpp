@@ -8,11 +8,10 @@
 void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines);
 void PrintOutDebug(TextFile& textfile);
 void HandleLeftRightKeys(sf::Event& e, TextFile& textfile);
-void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text);
+void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<sf::Text>& text_lines, sf::Vector2f offset);
 void TryLoadFont(sf::Font& font, std::string path);
 void ResizeView(const sf::RenderWindow& window, sf::View& view);
 void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window);
-void UpdateTextFromGapBuffer(sf::Text& text, TextFile& textfile);
 void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines, TextFile& textfile, sf::Font& text_font, sf::Vector2f offset);
 void HandleUpDownKeys(sf::Event& e, TextFile& textfile);
 void DrawAllTextLines(std::vector<sf::Text>& text_lines, sf::RenderWindow& window);
@@ -88,7 +87,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 			{
 				if (e.text.unicode < 128) {
 					HandleUserInput(e, textfile, text_lines);
-					HandleDelete(e, textfile, text);
+					HandleDelete(e, textfile, text, text_lines, text_offset);
 				}
 			}
 			// <------------- handle cursor movement ---------------------->
@@ -121,8 +120,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 		window.setView(view);
 
 		// --------- draw on the screen ---------
-		int current_line = textfile.gap_buffer.GetCurrentLine();
-		HighlightTypingPosition(text_lines[current_line], text_font, textfile.gap_buffer.GetGapStart(), window);
+		HighlightTypingPosition(text_lines[textfile.gap_buffer.GetCurrentLine()], text_font, textfile.gap_buffer.GetGapStart(), window);
 		DrawAllTextLines(text_lines, window);
 
 		// --------- display on the screen --------
@@ -158,20 +156,57 @@ void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>
 
 		user_typed_tick = true;
 		user_typed_tick_counter = USER_TYPED_TICK_CD;
+
+		//PrintOutDebug(textfile);
 	}
 }
 
-void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text)
+void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<sf::Text>& text_lines, sf::Vector2f offset)
 {
 	if (e.text.unicode == '\b')
 	{
-		textfile.gap_buffer.DeleteCharacter();
-		UpdateTextFromGapBuffer(text, textfile);
+		int line_before_delete = textfile.gap_buffer.GetCurrentLine();
+		textfile.gap_buffer.DeleteCharacter(); 
+		std::vector<char> changed_line = textfile.gap_buffer.GetLines()[textfile.gap_buffer.GetCurrentLine()];
+		std::string temp_line;
+		int line_after_delete = textfile.gap_buffer.GetCurrentLine();
+
+		for (int i = 0; i < changed_line.size(); i++) {
+			if (changed_line[i] != '\0') {
+				temp_line.push_back(changed_line[i]);
+			}
+		}
+
+		if (temp_line.size() == 0) {
+
+			text_lines[textfile.gap_buffer.GetCurrentLine()].setString(" ");
+		}
+		else {
+			text_lines[textfile.gap_buffer.GetCurrentLine()].setString(temp_line);
+		}
+		
+		if (line_after_delete < line_before_delete) {
+			text_lines.erase(text_lines.begin() + line_before_delete);
+
+			int offset_x = static_cast<int>(offset.x);
+
+			for (int i = 0; i < text_lines.size(); i++) {
+				int offset_y = static_cast<int>(offset.y * (i + 1));
+
+				text_lines[i].setPosition(sf::Vector2f(offset_x, offset_y));
+
+			}
+		}
+
+		//PrintOutDebug(textfile);
 	}
+
 }
 
 void PrintOutDebug(TextFile& textfile)
 {
+	std::cout << std::endl;
+	std::cout << " ------------------------ " << std::endl;
 	for (int i = 0; i < textfile.GetGapBuffer().GetLines().size(); i++) {
 		for (int k = 0; k < textfile.GetGapBuffer().GetLines()[i].size(); k++) {
 
@@ -201,11 +236,19 @@ void HandleUpDownKeys(sf::Event& e, TextFile& textfile) {
 
 void HandleLeftRightKeys(sf::Event& e, TextFile& textfile)
 {
-	if (e.key.code == sf::Keyboard::Left)
+	if (e.key.code == sf::Keyboard::Left) {
 		textfile.gap_buffer.MoveGapLeft();
+		//PrintOutDebug(textfile);
+	}
+
+
 	//PrintOutDebug(textfile);
-	if (e.key.code == sf::Keyboard::Right)
+	if (e.key.code == sf::Keyboard::Right) {
 		textfile.gap_buffer.MoveGapRight();
+		//PrintOutDebug(textfile);
+	}
+
+
 	//PrintOutDebug(textfile);
 }
 
@@ -215,9 +258,26 @@ void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines, TextFile& text
 
 		// Do re-arranging of all lines here with the offset & add a new line to the vector
 
+		sf::Text new_line_text;
 
-		//int current_line = textfile.gap_buffer.GetCurrentLine();
-		//text_lines.insert(text_lines.begin() + current_line, );
+		int rounded_offset_x = static_cast<int>(offset.x);
+		
+		new_line_text.setCharacterSize(20);
+		new_line_text.setFont(text_font);
+		new_line_text.setString(" ");
+		new_line_text.setFillColor(sf::Color::White);
+		
+		// Insert the new line at the correct position
+		int current_line = textfile.gap_buffer.GetCurrentLine();
+		text_lines.insert(text_lines.begin() + current_line, new_line_text);
+
+		// Finally, loop through all of the text lines after the new line and re-arrange their positions;
+		for (int i = current_line; i < text_lines.size(); i++) 
+		{
+			int rounded_offset_y = static_cast<int>(offset.y * (i + 1)); // Has to be multiplied by the number of line
+			text_lines[i].setPosition(sf::Vector2f(rounded_offset_x, rounded_offset_y));
+		}
+
 	}
 }
 
@@ -248,12 +308,13 @@ void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window)
 }
 
 void HighlightTypingPosition(sf::Text& current_text_line,sf::Font& font, int current_line_index, sf::RenderWindow& window) {
-
 	sf::RectangleShape rect;
 	rect.setPosition(current_text_line.findCharacterPos(current_line_index).x +
 		font.getGlyph('\0', 20, 0).bounds.left, current_text_line.getGlobalBounds().top +
 		(current_text_line.getGlobalBounds().height + font.getGlyph('\0', 20, 0).bounds.top));
 	rect.setSize(sf::Vector2f(font.getGlyph('\0', 20, 0).bounds.width, font.getGlyph('\0', 20, 0).bounds.height));
+
+	//std::cout << " - " << (std::string)current_text_line.getString() << " - ";
 
 	if (user_typed_tick) {
 		
@@ -287,12 +348,6 @@ void HighlightTypingPosition(sf::Text& current_text_line,sf::Font& font, int cur
 		tick_counter++;
 	}
 
-}
-
-// Function to update the sf::Text object based on the gap_buffer content
-void UpdateTextFromGapBuffer(sf::Text& text, TextFile& textfile)
-{
-	
 }
 
 sf::Text CreateInitialTextLine(sf::Font& font, const sf::Vector2f& offset, int multiplier, std::string content) {

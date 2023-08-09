@@ -181,6 +181,8 @@ void GapBuffer::DeleteCharacter()
 
 			// Finally, delete the old line
 			lines.erase(lines.begin() + old_line);
+
+			return;
 		}
 	}
 
@@ -282,6 +284,7 @@ void GapBuffer::InsertNewLine() {
 		for (int i = 0; i < gap_sizes[current_line]; i++) {
 			lines[current_line].push_back('\0');
 		}
+
 		return;
 	}
 
@@ -297,6 +300,10 @@ void GapBuffer::InsertNewLine() {
 		for (int i = 0; i < gap_sizes[current_line]; i++) {
 			lines[current_line].push_back('\0');
 		}
+
+		std::cout << std::endl;
+		std::cout << " NIGGERS but insert new line " << current_line;
+
 	}
 
 

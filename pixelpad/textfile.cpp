@@ -28,7 +28,7 @@ TextFile::TextFile(std::string document_name, std::string document_path) {
 		'a', 'b', 'c', 'd', 'e',
 			'\n', 'a', 'b', 'c', 'd',
 			'\n', 'a',
-			'\n'};
+			'\n', 'o'};
 
 	GapBuffer gap_buffer(content);
 	this->gap_buffer = gap_buffer;
