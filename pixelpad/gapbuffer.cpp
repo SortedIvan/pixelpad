@@ -302,7 +302,6 @@ void GapBuffer::InsertNewLine() {
 		}
 
 		std::cout << std::endl;
-		std::cout << " NIGGERS but insert new line " << current_line;
 
 	}
 

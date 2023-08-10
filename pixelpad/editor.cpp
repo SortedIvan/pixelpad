@@ -85,10 +85,9 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 			// <------------- handle input ---------------------->
 			if (e.type == sf::Event::TextEntered)
 			{
-				if (e.text.unicode < 128) {
-					HandleUserInput(e, textfile, text_lines);
-					HandleDelete(e, textfile, text, text_lines, text_offset);
-				}
+				HandleUserInput(e, textfile, text_lines);
+				HandleDelete(e, textfile, text, text_lines, text_offset);
+				
 			}
 			// <------------- handle cursor movement ---------------------->
 			if (e.type == sf::Event::KeyPressed)
@@ -131,12 +130,11 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	return 0;
 }
 
-
 void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines)
 {
 	// If the unicode is not backspace, enter, left or right arrow
-	if (event.text.unicode != '\b' && event.text.unicode != 13 && event.text.unicode != '37' && 
-		event.text.unicode != '39' && !sf::Keyboard::isKeyPressed(sf::Keyboard::LControl) &&
+	if (event.text.unicode != '\b' && event.text.unicode != 13 && event.text.unicode != sf::Keyboard::Left &&
+		event.text.unicode != sf::Keyboard::Left && !sf::Keyboard::isKeyPressed(sf::Keyboard::LControl) &&
 		event.key.code != sf::Keyboard::Down && event.key.code != sf::Keyboard::Up)
 	{
 		textfile.gap_buffer.InsertCharacter(event.text.unicode);
@@ -157,7 +155,7 @@ void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>
 		user_typed_tick = true;
 		user_typed_tick_counter = USER_TYPED_TICK_CD;
 
-		//PrintOutDebug(textfile);
+		PrintOutDebug(textfile);
 	}
 }
 
@@ -178,7 +176,6 @@ void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<
 		}
 
 		if (temp_line.size() == 0) {
-
 			text_lines[textfile.gap_buffer.GetCurrentLine()].setString(" ");
 		}
 		else {
@@ -198,7 +195,7 @@ void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<
 			}
 		}
 
-		//PrintOutDebug(textfile);
+		PrintOutDebug(textfile);
 	}
 
 }
@@ -219,6 +216,17 @@ void PrintOutDebug(TextFile& textfile)
 		std::cout << std::endl;
 	}
 }
+
+// TODO:
+void SelectText() {
+
+}
+
+// TODO:
+void SwapLines() {
+
+}
+
 
 void HandleUpDownKeys(sf::Event& e, TextFile& textfile) {
 	if (e.key.code == sf::Keyboard::Down) {
