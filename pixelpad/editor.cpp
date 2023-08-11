@@ -20,7 +20,7 @@ void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode);
 void DrawAllTextLines(std::vector<sf::Text>& text_lines, sf::RenderWindow& window);
 sf::Text CreateInitialTextLine(sf::Font& font, const sf::Vector2f& offset, int multiplier, std::string content);
 void HighlightTypingPosition(sf::Text& current_text_line, sf::Font& font, int current_line_index, sf::RenderWindow& window);
-void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile);
+void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile, std::vector<std::tuple<int, int>> highlight_indexes);
 void SetSelectionIndexes(TextFile& textfile, std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, std::vector<std::tuple<int, int>>& highlight_indexes);
 
 static const float DEFAULT_SCREEN_WIDTH = 1024.f;
@@ -98,7 +98,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 			if (e.type == sf::Event::TextEntered)
 			{
 				if (e.key.code == 'q') {
-					PrintSelectedChars(selection_start, selection_end, textfile);
+					PrintSelectedChars(selection_start, selection_end, textfile, highlight_indexes);
 					//PrintSelectedChars(highlight_indexes, textfile);
 					continue;
 				}
@@ -282,51 +282,59 @@ void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode,
 	}
 }
 
-void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile) {
+void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile, std::vector<std::tuple<int,int>> highlight_indexes) {
 
 	std::vector<std::vector<char>> lines = textfile.gap_buffer.GetLines();
-	std::string selected_characters = "";
+	//std::string selected_characters = "";
 
-	int _selection_start = std::get<0>(selection_start);
-	int _selection_end = std::get<0>(selection_end);
+	//int _selection_start = std::get<0>(selection_start);
+	//int _selection_end = std::get<0>(selection_end);
 
-	int starting_character = std::get<1>(selection_start);
-	int ending_character = std::get<1>(selection_end);
+	//int starting_character = std::get<1>(selection_start);
+	//int ending_character = std::get<1>(selection_end);
 
-	if (_selection_end < _selection_start) {
-		for (int i = _selection_end; i < _selection_start + 1; i++) {
-			if (i == _selection_end) { // if we are at the final line, start the character collection from the ending character instead
-				for (int k = ending_character; k < lines[i].size(); k++) {
-					if (lines[i][k] != '\0') {
-						selected_characters.push_back(lines[i][k]);
-					}
+	//if (_selection_end < _selection_start) {
+	//	for (int i = _selection_end; i < _selection_start + 1; i++) {
+	//		if (i == _selection_end) { // if we are at the final line, start the character collection from the ending character instead
+	//			for (int k = ending_character; k < lines[i].size(); k++) {
+	//				if (lines[i][k] != '\0') {
+	//					selected_characters.push_back(lines[i][k]);
+	//				}
 
-				}
-				selected_characters.push_back('\n'); // Finally, if we go to the end, we add a new line
-				continue;
-			}
-			if (i == _selection_end) { // if we are at the starting line, begin from the starting character
-				for (int k = starting_character; k < lines[i].size(); k++) {
-					if (lines[i][k] != '\0') {
-						selected_characters.push_back(lines[i][k]);
-					}
-				}
-				selected_characters.push_back('\n');
-				continue;
-			}
+	//			}
+	//			selected_characters.push_back('\n'); // Finally, if we go to the end, we add a new line
+	//			continue;
+	//		}
+	//		if (i == _selection_end) { // if we are at the starting line, begin from the starting character
+	//			for (int k = starting_character; k < lines[i].size(); k++) {
+	//				if (lines[i][k] != '\0') {
+	//					selected_characters.push_back(lines[i][k]);
+	//				}
+	//			}
+	//			selected_characters.push_back('\n');
+	//			continue;
+	//		}
 
-			// else, just add everything from start to end
-			for (int k = 0; k < lines[i].size(); k++) {
-				if (lines[i][k] != '\0') {
-					selected_characters.push_back(lines[i][k]);
-				}
-			}
-			selected_characters.push_back('\n');
+	//		// else, just add everything from start to end
+	//		for (int k = 0; k < lines[i].size(); k++) {
+	//			if (lines[i][k] != '\0') {
+	//				selected_characters.push_back(lines[i][k]);
+	//			}
+	//		}
+	//		selected_characters.push_back('\n');
 
-		}
+	//	}
+	//}
+	std::string temporary_string;
+
+	int previous_line = 0;
+	for (int i = 0; i < highlight_indexes.size(); i++) {
+		temporary_string.push_back(lines[std::get<0>(highlight_indexes.at(i))].at(std::get<1>(highlight_indexes.at(i))));
 	}
 
-	std::cout << selected_characters.size();
+	std::cout << temporary_string;
+
+	//std::cout << selected_characters.size();
 
 
 }
@@ -372,6 +380,8 @@ void SetSelectionIndexes(TextFile& textfile, std::tuple<int, int> selection_star
 				}
 			}
 		}
+		return; // finish after pushing the indexes into the vector
+
 	}
 
 
@@ -435,7 +445,8 @@ void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window)
 }
 
 
-
+// Check whether the user has pressed a key with user_typed_tick
+// Depending on the bool, the highlight either stays fully filled or blinks in a less transparent mode
 void HighlightTypingPosition(sf::Text& current_text_line, sf::Font& font, int current_line_index, sf::RenderWindow& window) {
 	sf::RectangleShape rect;
 	rect.setPosition(current_text_line.findCharacterPos(current_line_index).x +
