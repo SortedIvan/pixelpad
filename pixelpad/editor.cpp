@@ -4,26 +4,29 @@
 #include <stdio.h>
 #include <iostream>
 #include <conio.h>
+#include <algorithm>
+#include <tuple>
 
 void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines);
 void PrintOutDebug(TextFile& textfile);
-void HandleLeftRightKeys(sf::Event& e, TextFile& textfile);
+void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode, std::tuple<int, int>& selection_start,
+	std::tuple<int, int>& selection_end, bool& shift_held_down, std::vector<std::tuple<int, int>>& highlight_indexes);
 void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<sf::Text>& text_lines, sf::Vector2f offset);
 void TryLoadFont(sf::Font& font, std::string path);
 void ResizeView(const sf::RenderWindow& window, sf::View& view);
 void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window);
 void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines, TextFile& textfile, sf::Font& text_font, sf::Vector2f offset);
-void HandleUpDownKeys(sf::Event& e, TextFile& textfile);
+void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode);
 void DrawAllTextLines(std::vector<sf::Text>& text_lines, sf::RenderWindow& window);
 sf::Text CreateInitialTextLine(sf::Font& font, const sf::Vector2f& offset, int multiplier, std::string content);
 void HighlightTypingPosition(sf::Text& current_text_line, sf::Font& font, int current_line_index, sf::RenderWindow& window);
-
+void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile);
+void SetSelectionIndexes(TextFile& textfile, std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, std::vector<std::tuple<int, int>>& highlight_indexes);
 
 static const float DEFAULT_SCREEN_WIDTH = 1024.f;
 static const float DEFAULT_SCREEN_HEIGHT = 900.f;
-static const sf::Color transparent_hightlight(255, 255, 255, 30); // RGBA(255, 255, 255, 30)
-static const sf::Color full_highlight(255, 255, 255, 150); // RGBA(255, 255, 255, 150)
-
+static const sf::Color transparent_hightlight(255, 255, 255, 30);			// RGBA(255, 255, 255, 30)
+static const sf::Color full_highlight(255, 255, 255, 150);					// RGBA(255, 255, 255, 150)
 
 //<------------------ Variables that control the tick (cursor) on the screen --------------->
 static const int TICK_COUNTDOWN = 5000;
@@ -62,8 +65,17 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	std::string temp_content_string;
 	std::vector<std::vector<char>> temp_lines = textfile.gap_buffer.GetLines();
 
+
+	// <------------ SELECTION MODE SECTION ----------->
+	bool selection_mode = false;
+	bool shift_held_down = false;
+	std::tuple<int, int> selection_start;				   // if the line of selection_start > selection_end, we have to go up lines & copy characters from end to start
+	std::tuple<int, int> selection_end;					   // else if the line of selection_end < selection_start, we have to go from start to end
+	std::vector<std::tuple<int, int>> highlight_indexes;   // Arrays of tuples used to represent positions in the text array
+	std::vector<std::tuple<int, int>> already_highlighted;
+
 	// Initialize the text objects for each line in the opened file
-	for (int i = 0; i < temp_lines.size();++i) {
+	for (int i = 0; i < temp_lines.size(); ++i) {
 
 		// initially loop through all of the content to display it and fill the text files
 		for (int k = 0; k < temp_lines.at(i).size(); ++k) {
@@ -85,16 +97,35 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 			// <------------- handle input ---------------------->
 			if (e.type == sf::Event::TextEntered)
 			{
+				if (e.key.code == 'q') {
+					PrintSelectedChars(selection_start, selection_end, textfile);
+					//PrintSelectedChars(highlight_indexes, textfile);
+					continue;
+				}
+
 				HandleUserInput(e, textfile, text_lines);
 				HandleDelete(e, textfile, text, text_lines, text_offset);
-				
+
 			}
 			// <------------- handle cursor movement ---------------------->
 			if (e.type == sf::Event::KeyPressed)
 			{
-				HandleLeftRightKeys(e, textfile);
-				HandleUpDownKeys(e, textfile);
-				HandleEnter(e, text_lines, textfile,text_font,text_offset);
+
+				if (e.key.code == sf::Keyboard::LShift) {
+					shift_held_down = true;
+				}
+
+
+				HandleLeftRightKeys(e, textfile, selection_mode, selection_start, selection_end, shift_held_down, highlight_indexes);
+				HandleUpDownKeys(e, textfile, selection_mode);
+				HandleEnter(e, text_lines, textfile, text_font, text_offset);
+			}
+
+			if (e.type == sf::Event::KeyReleased) {
+
+				if (e.key.code == sf::Keyboard::LShift) {
+					shift_held_down = false;
+				}
 			}
 
 			if (e.type == sf::Event::Resized)
@@ -102,7 +133,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 
 				// When the window is resized, update the view to match the new size
 				view.reset(sf::FloatRect(0.f, 0.f, static_cast<float>(window.getSize().x), static_cast<float>(window.getSize().y)));
-				
+
 			}
 
 			if (e.type == sf::Event::Closed)
@@ -126,36 +157,27 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 		window.display();
 
 	}
-
 	return 0;
 }
 
+
 void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines)
 {
-	// If the unicode is not backspace, enter, left or right arrow
-	if (event.text.unicode != '\b' && event.text.unicode != 13 && event.text.unicode != sf::Keyboard::Left &&
-		event.text.unicode != sf::Keyboard::Left && !sf::Keyboard::isKeyPressed(sf::Keyboard::LControl) &&
-		event.key.code != sf::Keyboard::Down && event.key.code != sf::Keyboard::Up)
+	if (event.text.unicode != '\b' && event.text.unicode != '\r' &&
+		event.key.code != sf::Keyboard::Left && event.key.code != sf::Keyboard::Right)
 	{
 		textfile.gap_buffer.InsertCharacter(event.text.unicode);
-		
 		int current_line = textfile.gap_buffer.GetCurrentLine();
-
 		std::vector<char> changed_line = textfile.gap_buffer.GetLines()[current_line];
 		std::string temp_line;
-
 		for (int i = 0; i < changed_line.size(); i++) {
 			if (changed_line[i] != '\0') {
 				temp_line.push_back(changed_line[i]);
 			}
 		}
-
 		text_lines[current_line].setString(temp_line);
-
 		user_typed_tick = true;
 		user_typed_tick_counter = USER_TYPED_TICK_CD;
-
-		PrintOutDebug(textfile);
 	}
 }
 
@@ -164,7 +186,7 @@ void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<
 	if (e.text.unicode == '\b')
 	{
 		int line_before_delete = textfile.gap_buffer.GetCurrentLine();
-		textfile.gap_buffer.DeleteCharacter(); 
+		textfile.gap_buffer.DeleteCharacter();
 		std::vector<char> changed_line = textfile.gap_buffer.GetLines()[textfile.gap_buffer.GetCurrentLine()];
 		std::string temp_line;
 		int line_after_delete = textfile.gap_buffer.GetCurrentLine();
@@ -176,12 +198,13 @@ void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<
 		}
 
 		if (temp_line.size() == 0) {
+
 			text_lines[textfile.gap_buffer.GetCurrentLine()].setString(" ");
 		}
 		else {
 			text_lines[textfile.gap_buffer.GetCurrentLine()].setString(temp_line);
 		}
-		
+
 		if (line_after_delete < line_before_delete) {
 			text_lines.erase(text_lines.begin() + line_before_delete);
 
@@ -189,13 +212,11 @@ void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<
 
 			for (int i = 0; i < text_lines.size(); i++) {
 				int offset_y = static_cast<int>(offset.y * (i + 1));
-
 				text_lines[i].setPosition(sf::Vector2f(offset_x, offset_y));
-
 			}
 		}
 
-		PrintOutDebug(textfile);
+		//PrintOutDebug(textfile);
 	}
 
 }
@@ -212,23 +233,13 @@ void PrintOutDebug(TextFile& textfile)
 			}
 			else {
 				std::cout << textfile.GetGapBuffer().GetLines()[i][k];
-			}		}
+			}
+		}
 		std::cout << std::endl;
 	}
 }
 
-// TODO:
-void SelectText() {
-
-}
-
-// TODO:
-void SwapLines() {
-
-}
-
-
-void HandleUpDownKeys(sf::Event& e, TextFile& textfile) {
+void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode) {
 	if (e.key.code == sf::Keyboard::Down) {
 		textfile.gap_buffer.MoveLineDown();
 	}
@@ -242,26 +253,134 @@ void HandleUpDownKeys(sf::Event& e, TextFile& textfile) {
 	//PrintOutDebug(textfile);
 }
 
-void HandleLeftRightKeys(sf::Event& e, TextFile& textfile)
+void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode,
+	std::tuple<int, int>& selection_start, std::tuple<int, int>& selection_end,
+	bool& shift_held_down, std::vector<std::tuple<int, int>>& highlight_indexes)
 {
-	if (e.key.code == sf::Keyboard::Left) {
-		textfile.gap_buffer.MoveGapLeft();
-		//PrintOutDebug(textfile);
+	// Record the selection_start only the first time that the user presses any of the keys, after which turn on selection mode
+
+	if (e.key.code == sf::Keyboard::Left || e.key.code == sf::Keyboard::Right) {
+		if (!selection_mode && shift_held_down) {
+			selection_start = std::make_tuple(textfile.gap_buffer.GetCurrentLine(), textfile.gap_buffer.GetGapStart());
+			selection_mode = true;
+		}
 	}
 
+	if (e.key.code == sf::Keyboard::Left) {
+		textfile.gap_buffer.MoveGapLeft();
+	}
 
-	//PrintOutDebug(textfile);
+	//PrintOutDebug(textfile);					
 	if (e.key.code == sf::Keyboard::Right) {
 		textfile.gap_buffer.MoveGapRight();
 		//PrintOutDebug(textfile);
 	}
 
-
-	//PrintOutDebug(textfile);
+	if (selection_mode) {
+		selection_end = std::make_tuple(textfile.gap_buffer.GetCurrentLine(), textfile.gap_buffer.GetGapStart());
+		SetSelectionIndexes(textfile, selection_start, selection_end, highlight_indexes);
+	}
 }
 
-void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines, TextFile& textfile, sf::Font& text_font, sf::Vector2f offset) {
+void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile) {
+
+	std::vector<std::vector<char>> lines = textfile.gap_buffer.GetLines();
+	std::string selected_characters = "";
+
+	int _selection_start = std::get<0>(selection_start);
+	int _selection_end = std::get<0>(selection_end);
+
+	int starting_character = std::get<1>(selection_start);
+	int ending_character = std::get<1>(selection_end);
+
+	if (_selection_end < _selection_start) {
+		for (int i = _selection_end; i < _selection_start + 1; i++) {
+			if (i == _selection_end) { // if we are at the final line, start the character collection from the ending character instead
+				for (int k = ending_character; k < lines[i].size(); k++) {
+					if (lines[i][k] != '\0') {
+						selected_characters.push_back(lines[i][k]);
+					}
+
+				}
+				selected_characters.push_back('\n'); // Finally, if we go to the end, we add a new line
+				continue;
+			}
+			if (i == _selection_end) { // if we are at the starting line, begin from the starting character
+				for (int k = starting_character; k < lines[i].size(); k++) {
+					if (lines[i][k] != '\0') {
+						selected_characters.push_back(lines[i][k]);
+					}
+				}
+				selected_characters.push_back('\n');
+				continue;
+			}
+
+			// else, just add everything from start to end
+			for (int k = 0; k < lines[i].size(); k++) {
+				if (lines[i][k] != '\0') {
+					selected_characters.push_back(lines[i][k]);
+				}
+			}
+			selected_characters.push_back('\n');
+
+		}
+	}
+
+	std::cout << selected_characters.size();
+
+
+}
+
+
+void SetSelectionIndexes(TextFile& textfile, std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, std::vector<std::tuple<int, int>>& highlight_indexes) {
+	int _selection_start = std::get<0>(selection_start);
+	int _selection_end = std::get<0>(selection_end);
+
+	int starting_character = std::get<1>(selection_start);
+	int ending_character = std::get<1>(selection_end);
+
+	std::vector<std::vector<char>> lines = textfile.gap_buffer.GetLines();
+
+	highlight_indexes.clear();
+
+
+	if (_selection_end < _selection_start) { // if the start is in some line below and the end is somewhere up, aka user selected from right to left and went up a line
+		for (int i = _selection_end; i < _selection_start + 1; i++) {
+			if (i == _selection_end) { // if we are at the final line, start the character collection from the ending character instead
+				for (int k = ending_character; k < lines[i].size(); k++) {
+
+					if (lines[i][k] != '\0') {
+						highlight_indexes.push_back(std::make_tuple(i, k));
+					}
+
+				}
+				continue;
+			}
+			if (i == _selection_end) { // if we are at the starting line, begin from the starting character
+				for (int k = starting_character; k < lines[i].size(); k++) {
+					if (lines[i][k] != '\0') {
+						highlight_indexes.push_back(std::make_tuple(i, k));
+					}
+				}
+				continue;
+			}
+
+			// else, just add everything from start to end
+			for (int k = 0; k < lines[i].size(); k++) {
+				if (lines[i][k] != '\0') {
+					highlight_indexes.push_back(std::make_tuple(i, k));
+				}
+			}
+		}
+	}
+
+
+}
+
+void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
+	TextFile& textfile, sf::Font& text_font, sf::Vector2f offset) {
 	if (e.key.code == sf::Keyboard::Enter) {
+
 		textfile.gap_buffer.InsertNewLine();
 
 		// Do re-arranging of all lines here with the offset & add a new line to the vector
@@ -269,18 +388,18 @@ void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines, TextFile& text
 		sf::Text new_line_text;
 
 		int rounded_offset_x = static_cast<int>(offset.x);
-		
+
 		new_line_text.setCharacterSize(20);
 		new_line_text.setFont(text_font);
 		new_line_text.setString(" ");
 		new_line_text.setFillColor(sf::Color::White);
-		
+
 		// Insert the new line at the correct position
 		int current_line = textfile.gap_buffer.GetCurrentLine();
 		text_lines.insert(text_lines.begin() + current_line, new_line_text);
 
 		// Finally, loop through all of the text lines after the new line and re-arrange their positions;
-		for (int i = current_line; i < text_lines.size(); i++) 
+		for (int i = current_line; i < text_lines.size(); i++)
 		{
 			int rounded_offset_y = static_cast<int>(offset.y * (i + 1)); // Has to be multiplied by the number of line
 			text_lines[i].setPosition(sf::Vector2f(rounded_offset_x, rounded_offset_y));
@@ -315,7 +434,9 @@ void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window)
 	text.setPosition(roundedOffsetX, roundedOffsetY);
 }
 
-void HighlightTypingPosition(sf::Text& current_text_line,sf::Font& font, int current_line_index, sf::RenderWindow& window) {
+
+
+void HighlightTypingPosition(sf::Text& current_text_line, sf::Font& font, int current_line_index, sf::RenderWindow& window) {
 	sf::RectangleShape rect;
 	rect.setPosition(current_text_line.findCharacterPos(current_line_index).x +
 		font.getGlyph('\0', 20, 0).bounds.left, current_text_line.getGlobalBounds().top +
@@ -325,7 +446,7 @@ void HighlightTypingPosition(sf::Text& current_text_line,sf::Font& font, int cur
 	//std::cout << " - " << (std::string)current_text_line.getString() << " - ";
 
 	if (user_typed_tick) {
-		
+
 		if (user_typed_tick_counter == 0) {
 			user_typed_tick = false;
 		}
@@ -379,7 +500,7 @@ sf::Text CreateInitialTextLine(sf::Font& font, const sf::Vector2f& offset, int m
 }
 
 void DrawAllTextLines(std::vector<sf::Text>& text_lines, sf::RenderWindow& window) {
-	for (int i = 0; i < text_lines.size(); i++) 
+	for (int i = 0; i < text_lines.size(); i++)
 	{
 		window.draw(text_lines.at(i));
 	}

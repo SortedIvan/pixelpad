@@ -72,7 +72,7 @@ void GapBuffer::MoveGapRight() {
 	// if the gap is located at the end and the current line selected is not the last line available
 	if (gap_ends[current_line] == lines.at(current_line).size() - 1 && current_line != lines.size() - 1) {
 		current_line += 1; // go up a line
-			
+
 		// Remove the gap sequence from its position (for the line below)
 		lines[current_line].erase(lines[current_line].begin() + gap_starts[current_line], lines[current_line].begin() + gap_ends[current_line] + 1);
 
@@ -128,7 +128,7 @@ void GapBuffer::InsertCharacter(char character) {
 	gap_starts[current_line]++;
 	gap_sizes[current_line]--;
 
-	
+
 	//std::cout << gap_sizes[current_line];
 }
 
@@ -302,7 +302,6 @@ void GapBuffer::InsertNewLine() {
 		}
 
 		std::cout << std::endl;
-
 	}
 
 
