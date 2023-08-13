@@ -25,7 +25,7 @@ TextFile::TextFile(std::string document_name, std::string document_path) {
 	//std::vector<char> content = { 'a','b','c' };
 
 	std::vector<char> content {
-		     'a', 'b', 'c', 'd', 'e',
+		'p', 'e', 't', 'e', 'r', ' ', 'p', 'i', 'p', 'e', 'r', ' ', 'p', 'i', 'c', 'k', 'e', 'd', ' ', 'a', ' ', 'p', 'e', 'c', 'k', ' ', 'o', 'f', ' ', 'p', 'i', 'c', 'k', 'l', 'e', 'd', ' ', 'p', 'e', 'p', 'p', 'e', 'r', 's',
 			'\n', 'a', 'b', 'c', 'd',
 			'\n', 'a',
 			'\n', 'o'};

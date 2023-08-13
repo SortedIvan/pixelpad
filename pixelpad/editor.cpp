@@ -6,27 +6,37 @@
 #include <conio.h>
 #include <algorithm>
 #include <tuple>
+#include <windows.h>
 
 void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines);
 void PrintOutDebug(TextFile& textfile);
 void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode, std::tuple<int, int>& selection_start,
 	std::tuple<int, int>& selection_end, bool& shift_held_down, std::vector<std::tuple<int, int>>& highlight_indexes);
-void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<sf::Text>& text_lines, sf::Vector2f offset);
+void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<sf::Text>& text_lines, sf::Vector2f offset,
+	std::vector<sf::Text>& line_counter, sf::Font& text_font, sf::Vector2f& line_counter_offset);
 void TryLoadFont(sf::Font& font, std::string path);
 void ResizeView(const sf::RenderWindow& window, sf::View& view);
 void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window);
-void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines, TextFile& textfile, sf::Font& text_font, sf::Vector2f offset);
+void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
+	TextFile& textfile, sf::Font& text_font, sf::Vector2f offset, std::vector<sf::Text>& line_counter, sf::Vector2f& line_counter_offset);
 void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode);
 void DrawAllTextLines(std::vector<sf::Text>& text_lines, sf::RenderWindow& window);
 sf::Text CreateInitialTextLine(sf::Font& font, const sf::Vector2f& offset, int multiplier, std::string content);
 void HighlightTypingPosition(sf::Text& current_text_line, sf::Font& font, int current_line_index, sf::RenderWindow& window);
 void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile, std::vector<std::tuple<int, int>> highlight_indexes);
 void SetSelectionIndexes(TextFile& textfile, std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, std::vector<std::tuple<int, int>>& highlight_indexes);
+void DeleteSelection(std::vector<std::tuple<int, int>> highlight_indexes, TextFile& textfile, std::vector<sf::Text>& text_lines, std::tuple<int, int> selection_start, std::tuple<int, int> selection_end);
+void DrawLineCountBar(std::vector<sf::Text>& line_counter, sf::RenderWindow& window, TextFile& textfile);
+void PopulateCountBar(std::vector<sf::Text>& line_counter, TextFile& textfile, sf::Font& text_font, sf::Vector2f line_count_offset);
 
+// <----------------- Graphical settings & configuration ----------------------------------->
 static const float DEFAULT_SCREEN_WIDTH = 1024.f;
 static const float DEFAULT_SCREEN_HEIGHT = 900.f;
 static const sf::Color transparent_hightlight(255, 255, 255, 30);			// RGBA(255, 255, 255, 30)
 static const sf::Color full_highlight(255, 255, 255, 150);					// RGBA(255, 255, 255, 150)
+static const sf::Color line_count_color(0x73, 0x93, 0xB3);
+static int previous_line_selected = 0;
+
 
 //<------------------ Variables that control the tick (cursor) on the screen --------------->
 static const int TICK_COUNTDOWN = 5000;
@@ -35,7 +45,6 @@ static int tick_counter = 0;
 static bool tick_type = true;
 static bool user_typed_tick = false;
 static int user_typed_tick_counter = 0;
-
 
 int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 {
@@ -57,14 +66,15 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 		sf::Vector2f(DEFAULT_SCREEN_WIDTH, DEFAULT_SCREEN_HEIGHT));
 
 	sf::Vector2f text_offset(50.f, 20.f);
+	sf::Vector2f line_counter_offset(20.f, 20.f);
 
 	TryLoadFont(text_font, "./8bitfont.ttf"); // Loads the font into the system -> TODO: Move this to happen only once in the main file
 
 	std::vector<sf::Text> text_lines;
+	std::vector<sf::Text> line_counter;
 
 	std::string temp_content_string;
 	std::vector<std::vector<char>> temp_lines = textfile.gap_buffer.GetLines();
-
 
 	// <------------ SELECTION MODE SECTION ----------->
 	bool selection_mode = false;
@@ -90,6 +100,8 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 		temp_content_string = ""; // reset the temp string
 	}
 
+	PopulateCountBar(line_counter, textfile, text_font, line_counter_offset);
+
 	while (window.isOpen())
 	{
 		while (window.pollEvent(e))
@@ -99,12 +111,11 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 			{
 				if (e.key.code == 'q') {
 					PrintSelectedChars(selection_start, selection_end, textfile, highlight_indexes);
-					//PrintSelectedChars(highlight_indexes, textfile);
 					continue;
 				}
 
 				HandleUserInput(e, textfile, text_lines);
-				HandleDelete(e, textfile, text, text_lines, text_offset);
+				HandleDelete(e, textfile, text, text_lines, text_offset,line_counter, text_font, line_counter_offset);
 
 			}
 			// <------------- handle cursor movement ---------------------->
@@ -118,7 +129,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 
 				HandleLeftRightKeys(e, textfile, selection_mode, selection_start, selection_end, shift_held_down, highlight_indexes);
 				HandleUpDownKeys(e, textfile, selection_mode);
-				HandleEnter(e, text_lines, textfile, text_font, text_offset);
+				HandleEnter(e, text_lines, textfile, text_font, text_offset, line_counter, line_counter_offset);
 			}
 
 			if (e.type == sf::Event::KeyReleased) {
@@ -142,7 +153,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 			}
 		}
 
-		// After all of the events, update the game state
+		// After all of the events, update the editor state
 		// --------- clear the screen ----------
 		window.clear(sf::Color::Black);
 
@@ -152,6 +163,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 		// --------- draw on the screen ---------
 		HighlightTypingPosition(text_lines[textfile.gap_buffer.GetCurrentLine()], text_font, textfile.gap_buffer.GetGapStart(), window);
 		DrawAllTextLines(text_lines, window);
+		DrawLineCountBar(line_counter, window, textfile);
 
 		// --------- display on the screen --------
 		window.display();
@@ -178,13 +190,18 @@ void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>
 		text_lines[current_line].setString(temp_line);
 		user_typed_tick = true;
 		user_typed_tick_counter = USER_TYPED_TICK_CD;
+
+		PrintOutDebug(textfile);
+
 	}
 }
 
-void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<sf::Text>& text_lines, sf::Vector2f offset)
+void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<sf::Text>& text_lines, sf::Vector2f offset,
+	std::vector<sf::Text>& line_counter, sf::Font& text_font, sf::Vector2f& line_counter_offset)
 {
 	if (e.text.unicode == '\b')
 	{
+
 		int line_before_delete = textfile.gap_buffer.GetCurrentLine();
 		textfile.gap_buffer.DeleteCharacter();
 		std::vector<char> changed_line = textfile.gap_buffer.GetLines()[textfile.gap_buffer.GetCurrentLine()];
@@ -205,6 +222,8 @@ void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<
 			text_lines[textfile.gap_buffer.GetCurrentLine()].setString(temp_line);
 		}
 
+		// if the line has changed after the deletion of a character, this means we have to remove a line 
+		// and re-position all of the text lines, as well as the line count
 		if (line_after_delete < line_before_delete) {
 			text_lines.erase(text_lines.begin() + line_before_delete);
 
@@ -214,8 +233,11 @@ void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<
 				int offset_y = static_cast<int>(offset.y * (i + 1));
 				text_lines[i].setPosition(sf::Vector2f(offset_x, offset_y));
 			}
-		}
+			PopulateCountBar(line_counter, textfile, text_font, line_counter_offset);
 
+			previous_line_selected = textfile.gap_buffer.GetCurrentLine();
+
+		}
 		//PrintOutDebug(textfile);
 	}
 
@@ -285,56 +307,98 @@ void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode,
 void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile, std::vector<std::tuple<int,int>> highlight_indexes) {
 
 	std::vector<std::vector<char>> lines = textfile.gap_buffer.GetLines();
-	//std::string selected_characters = "";
+	std::string selected_characters = "";
 
-	//int _selection_start = std::get<0>(selection_start);
-	//int _selection_end = std::get<0>(selection_end);
+	int _selection_start = std::get<0>(selection_start);
+	int _selection_end = std::get<0>(selection_end);
 
-	//int starting_character = std::get<1>(selection_start);
-	//int ending_character = std::get<1>(selection_end);
+	int starting_character = std::get<1>(selection_start);
+	int ending_character = std::get<1>(selection_end);
 
-	//if (_selection_end < _selection_start) {
-	//	for (int i = _selection_end; i < _selection_start + 1; i++) {
-	//		if (i == _selection_end) { // if we are at the final line, start the character collection from the ending character instead
-	//			for (int k = ending_character; k < lines[i].size(); k++) {
-	//				if (lines[i][k] != '\0') {
-	//					selected_characters.push_back(lines[i][k]);
-	//				}
+	if (_selection_end < _selection_start) {
+		for (int i = _selection_end; i < _selection_start + 1; i++) {
+			if (i == _selection_end) { // if we are at the final line, start the character collection from the ending character instead
+				for (int k = ending_character; k < lines[i].size(); k++) {
+					if (lines[i][k] != '\0') {
+						selected_characters.push_back(lines[i][k]);
+					}
 
-	//			}
-	//			selected_characters.push_back('\n'); // Finally, if we go to the end, we add a new line
-	//			continue;
-	//		}
-	//		if (i == _selection_end) { // if we are at the starting line, begin from the starting character
-	//			for (int k = starting_character; k < lines[i].size(); k++) {
-	//				if (lines[i][k] != '\0') {
-	//					selected_characters.push_back(lines[i][k]);
-	//				}
-	//			}
-	//			selected_characters.push_back('\n');
-	//			continue;
-	//		}
+				}
+				selected_characters.push_back('\n'); // Finally, if we go to the end, we add a new line
+				continue;
+			}
+			if (i == _selection_start) { // if we are at the starting line, begin from the starting character
+				for (int k = starting_character; k < lines[i].size(); k++) {
+					if (lines[i][k] != '\0') {
+						selected_characters.push_back(lines[i][k]);
+					}
+				}
+				continue;
+			}
 
-	//		// else, just add everything from start to end
-	//		for (int k = 0; k < lines[i].size(); k++) {
-	//			if (lines[i][k] != '\0') {
-	//				selected_characters.push_back(lines[i][k]);
-	//			}
-	//		}
-	//		selected_characters.push_back('\n');
+			// else, just add everything from start to end
+			for (int k = 0; k < lines[i].size(); k++) {
+				if (lines[i][k] != '\0') {
+					selected_characters.push_back(lines[i][k]);
+				}
+			}
+			selected_characters.push_back('\n');
 
-	//	}
-	//}
-	std::string temporary_string;
-
-	int previous_line = 0;
-	for (int i = 0; i < highlight_indexes.size(); i++) {
-		temporary_string.push_back(lines[std::get<0>(highlight_indexes.at(i))].at(std::get<1>(highlight_indexes.at(i))));
+		}
 	}
 
-	std::cout << temporary_string;
+	std::cout << selected_characters;
 
-	//std::cout << selected_characters.size();
+}
+
+
+void DeleteSelection(std::vector<std::tuple<int,int>> highlight_indexes, TextFile& textfile,
+	std::vector<sf::Text>& text_lines, std::tuple<int, int> selection_start, std::tuple<int, int> selection_end) {
+
+
+	std::vector<std::vector<char>> lines = textfile.gap_buffer.GetLines();
+	std::string selected_characters = "";
+
+	int _selection_start = std::get<0>(selection_start);
+	int _selection_end = std::get<0>(selection_end);
+
+	int starting_character = std::get<1>(selection_start);
+	int ending_character = std::get<1>(selection_end);
+
+	if (_selection_end < _selection_start) {
+		for (int i = _selection_end; i < _selection_start + 1; i++) {
+			if (i == _selection_end) { // if we are at the final line, start the character collection from the ending character instead
+				for (int k = ending_character; k < lines[i].size(); k++) {
+					if (lines[i][k] != '\0') {
+						textfile.gap_buffer.GetLines()[i][k] = '\0';
+					}
+
+				}
+				textfile.gap_buffer.GetLines().erase(textfile.gap_buffer.GetLines().begin() + i);
+				continue;
+			}
+			if (i == _selection_start) { // if we are at the starting line, begin from the starting character
+				for (int k = starting_character; k < lines[i].size(); k++) {
+					if (lines[i][k] != '\0') {
+						textfile.gap_buffer.GetLines()[i][k] = '\0';
+					}
+				}
+				continue;
+			}
+
+			// else, just add everything from start to end
+			for (int k = 0; k < lines[i].size(); k++) {
+				if (lines[i][k] != '\0') {
+					textfile.gap_buffer.GetLines()[i][k] = '\0';
+				}
+			}
+
+			textfile.gap_buffer.GetLines().erase(textfile.gap_buffer.GetLines().begin() + i);
+
+		}
+	}
+
+	std::cout << selected_characters;
 
 
 }
@@ -381,14 +445,55 @@ void SetSelectionIndexes(TextFile& textfile, std::tuple<int, int> selection_star
 			}
 		}
 		return; // finish after pushing the indexes into the vector
-
 	}
-
-
 }
 
+void DrawLineCountBar(std::vector<sf::Text>& line_counter, sf::RenderWindow& window, TextFile& textfile) {
+	for (int i = 0; i < line_counter.size(); i++) {
+
+		if (i == textfile.gap_buffer.GetCurrentLine()) 
+		{
+			if (i != previous_line_selected) { // if the user has selected a different line, remove the highlight from the last line 
+				line_counter[previous_line_selected].setFillColor(line_count_color);
+				line_counter[i].setFillColor(sf::Color::White);
+				previous_line_selected = i;
+
+				continue;
+			}
+		}
+		line_counter[i].setFillColor(line_count_color);
+		window.draw(line_counter[i]);
+	}
+}
+
+void PopulateCountBar(std::vector<sf::Text>& line_counter, TextFile& textfile, sf::Font& text_font, sf::Vector2f line_count_offset) {
+
+	line_counter.clear();
+
+	int line_count = textfile.gap_buffer.GetLines().size();
+	
+
+
+	sf::Text line_count_text;
+
+	line_count_text.setCharacterSize(20);
+	line_count_text.setFont(text_font);
+	line_count_text.setFillColor(line_count_color);
+
+	int rounded_offset_x = static_cast<int>(line_count_offset.x);
+
+	for (int i = 0; i < line_count; i++) {
+		int rounded_offset_y = static_cast<int>(line_count_offset.y * (i + 1));
+		line_count_text.setString(std::to_string(i + 1));
+		line_count_text.setPosition(sf::Vector2f(rounded_offset_x, rounded_offset_y));
+
+		line_counter.push_back(line_count_text);
+	}
+}
+
+
 void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
-	TextFile& textfile, sf::Font& text_font, sf::Vector2f offset) {
+	TextFile& textfile, sf::Font& text_font, sf::Vector2f offset,std::vector<sf::Text>& line_counter, sf::Vector2f& line_counter_offset) {
 	if (e.key.code == sf::Keyboard::Enter) {
 
 		textfile.gap_buffer.InsertNewLine();
@@ -414,6 +519,9 @@ void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
 			int rounded_offset_y = static_cast<int>(offset.y * (i + 1)); // Has to be multiplied by the number of line
 			text_lines[i].setPosition(sf::Vector2f(rounded_offset_x, rounded_offset_y));
 		}
+
+		PopulateCountBar(line_counter, textfile, text_font, line_counter_offset);
+		previous_line_selected = textfile.gap_buffer.GetCurrentLine();
 
 	}
 }
