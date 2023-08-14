@@ -46,9 +46,9 @@ static bool tick_type = true;
 static bool user_typed_tick = false;
 static int user_typed_tick_counter = 0;
 
+
 int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 {
-
 	// Use one method for handling the opening of files? Can add an explicit check if there are more than 1 files opened, if yes -> don't open a new window
 	// 1) First open the file at the filepath and read its contents
 	// 1.2) Create a text file object and add it to the array of other text objects
@@ -512,13 +512,24 @@ void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
 			std::vector<char> current_line_buffer = textfile.gap_buffer.GetLines()[textfile.gap_buffer.GetCurrentLine()];
 			std::string current_line_text = "";
 
+			// we count if there are any regular characters
+			int regular_char_count = 0;
 			for (int i = 0; i < current_line_buffer.size(); i++) {
 				if (current_line_buffer[i] != '\0') {
 					current_line_text.push_back(current_line_buffer[i]);
+					regular_char_count++;
+					continue;
 				}
 			}
 
-			new_line_text.setString(current_line_text);
+			// if there are no regular characters on the new line, we can asume that no content was moved
+			// Therefore, we set the string as " " (in order to be able to highlight it)
+			if (regular_char_count == 0) {
+				new_line_text.setString(" ");
+			}
+			else {
+				new_line_text.setString(current_line_text);
+			}
 		}
 
 		// Insert the new line at the correct position
