@@ -271,7 +271,34 @@ void GapBuffer::ResizeGapMemoryFromBack() {
 	this->newline_positions[current_line] = this->lines[current_line].size(); // Set the new newline character to be always at the end
 }
 
+
+void NewLineContentSplit(bool& content_after_gap, int& previous_line, std::vector<int>& gap_ends, std::vector<int>& gap_sizes,
+	std::vector<std::vector<char>>& lines, std::vector<int>& newline_positions, int& current_line) {
+	if (content_after_gap) {
+
+		int gap_increase = 0;
+
+		for (int i = gap_ends[previous_line] + 1; i < lines[previous_line].size(); i++) {
+			lines[current_line].push_back(lines[previous_line][i]);
+			lines[previous_line][i] = '\0';
+			gap_increase++;
+		}
+
+		gap_ends[previous_line] = lines[previous_line].size() - 1;
+		gap_sizes[previous_line] = gap_sizes[previous_line] + gap_increase;
+		newline_positions[previous_line] = gap_ends[previous_line] + 1;
+	}
+}
+
 void GapBuffer::InsertNewLine() {
+
+	int previous_line = current_line;
+	bool content_after_gap = false;
+
+	if (gap_ends[current_line] != lines[current_line].size() - 1) {
+		content_after_gap = true;
+	}
+
 	if (current_line == lines.size() - 1) { // if the current_line is located at the end of the lines
 		current_line += 1;
 
@@ -285,17 +312,13 @@ void GapBuffer::InsertNewLine() {
 			lines[current_line].push_back('\0');
 		}
 
+		NewLineContentSplit(content_after_gap, previous_line, gap_ends, gap_sizes, lines, newline_positions, current_line);
+
+		// TO-DO: fix new_line array here
+
 		return;
 	}
 	if (current_line != lines.size() - 1) {
-
-		int previous_line = current_line;
-		bool content_after_gap = false;
-
-		if (gap_ends[current_line] != lines[current_line].size() - 1) {
-			content_after_gap = true;
-		}
-
 		current_line += 1;
 
 		lines.insert(lines.begin() + current_line, std::vector<char>());
@@ -307,29 +330,12 @@ void GapBuffer::InsertNewLine() {
 			lines[current_line].push_back('\0');
 		}
 		
-		if (content_after_gap) {
-
-			int gap_increase = 0;
-
-			for (int i = gap_ends[previous_line] + 1; i < lines[previous_line].size(); i++) {
-				lines[current_line].push_back(lines[previous_line][i]);
-				lines[previous_line][i] = '\0';
-				gap_increase++;
-			}
-
-			gap_ends[previous_line] = lines[previous_line].size() - 1;
-			gap_sizes[previous_line] = gap_sizes[previous_line] + gap_increase;
-			newline_positions[previous_line] = gap_ends[previous_line] + 1;
-		}
-
-		//----
+		NewLineContentSplit(content_after_gap, previous_line, gap_ends, gap_sizes, lines, newline_positions, current_line);
 
 		newline_positions.insert(newline_positions.begin() + current_line, GAP_SIZE);
 
 		std::cout << std::endl;
 	}
-
-
 }
 
 void GapBuffer::MoveLineUp() {
