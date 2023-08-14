@@ -287,19 +287,44 @@ void GapBuffer::InsertNewLine() {
 
 		return;
 	}
-
 	if (current_line != lines.size() - 1) {
+
+		int previous_line = current_line;
+		bool content_after_gap = false;
+
+		if (gap_ends[current_line] != lines[current_line].size() - 1) {
+			content_after_gap = true;
+		}
+
 		current_line += 1;
 
 		lines.insert(lines.begin() + current_line, std::vector<char>());
 		gap_starts.insert(gap_starts.begin() + current_line, 0);
 		gap_ends.insert(gap_ends.begin() + current_line, GAP_SIZE - 1);
 		gap_sizes.insert(gap_sizes.begin() + current_line, GAP_SIZE);
-		newline_positions.insert(newline_positions.begin() + current_line, GAP_SIZE);
 
 		for (int i = 0; i < gap_sizes[current_line]; i++) {
 			lines[current_line].push_back('\0');
 		}
+		
+		if (content_after_gap) {
+
+			int gap_increase = 0;
+
+			for (int i = gap_ends[previous_line] + 1; i < lines[previous_line].size(); i++) {
+				lines[current_line].push_back(lines[previous_line][i]);
+				lines[previous_line][i] = '\0';
+				gap_increase++;
+			}
+
+			gap_ends[previous_line] = lines[previous_line].size() - 1;
+			gap_sizes[previous_line] = gap_sizes[previous_line] + gap_increase;
+			newline_positions[previous_line] = gap_ends[previous_line] + 1;
+		}
+
+		//----
+
+		newline_positions.insert(newline_positions.begin() + current_line, GAP_SIZE);
 
 		std::cout << std::endl;
 	}

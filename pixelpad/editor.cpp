@@ -11,17 +11,17 @@
 void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines);
 void PrintOutDebug(TextFile& textfile);
 void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode, std::tuple<int, int>& selection_start,
-	std::tuple<int, int>& selection_end, bool& shift_held_down, std::vector<std::tuple<int, int>>& highlight_indexes);
+	 std::tuple<int, int>& selection_end, bool& shift_held_down, std::vector<std::tuple<int, int>>& highlight_indexes);
 void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<sf::Text>& text_lines, sf::Vector2f offset,
-	std::vector<sf::Text>& line_counter, sf::Font& text_font, sf::Vector2f& line_counter_offset);
+	 std::vector<sf::Text>& line_counter, sf::Font& text_font, sf::Vector2f& line_counter_offset);
 void TryLoadFont(sf::Font& font, std::string path);
 void ResizeView(const sf::RenderWindow& window, sf::View& view);
 void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window);
 void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
-	TextFile& textfile, sf::Font& text_font, sf::Vector2f offset, std::vector<sf::Text>& line_counter, sf::Vector2f& line_counter_offset);
+	 TextFile& textfile, sf::Font& text_font, sf::Vector2f offset, std::vector<sf::Text>& line_counter, sf::Vector2f& line_counter_offset);
 void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode);
 void DrawAllTextLines(std::vector<sf::Text>& text_lines, sf::RenderWindow& window);
-sf::Text CreateInitialTextLine(sf::Font& font, const sf::Vector2f& offset, int multiplier, std::string content);
+	 sf::Text CreateInitialTextLine(sf::Font& font, const sf::Vector2f& offset, int multiplier, std::string content);
 void HighlightTypingPosition(sf::Text& current_text_line, sf::Font& font, int current_line_index, sf::RenderWindow& window);
 void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile, std::vector<std::tuple<int, int>> highlight_indexes);
 void SetSelectionIndexes(TextFile& textfile, std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, std::vector<std::tuple<int, int>>& highlight_indexes);
@@ -496,22 +496,49 @@ void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
 	TextFile& textfile, sf::Font& text_font, sf::Vector2f offset,std::vector<sf::Text>& line_counter, sf::Vector2f& line_counter_offset) {
 	if (e.key.code == sf::Keyboard::Enter) {
 
+		// Capturing the count of the line before, as creating a new line might need re-arrangement
+		int line_before = textfile.gap_buffer.GetCurrentLine(); 
 		textfile.gap_buffer.InsertNewLine();
-
-		// Do re-arranging of all lines here with the offset & add a new line to the vector
 
 		sf::Text new_line_text;
 
 		int rounded_offset_x = static_cast<int>(offset.x);
-
 		new_line_text.setCharacterSize(20);
 		new_line_text.setFont(text_font);
 		new_line_text.setString(" ");
 		new_line_text.setFillColor(sf::Color::White);
 
+		if (line_before != textfile.gap_buffer.GetCurrentLine()) {
+			std::vector<char> current_line_buffer = textfile.gap_buffer.GetLines()[textfile.gap_buffer.GetCurrentLine()];
+			std::string current_line_text = "";
+
+			for (int i = 0; i < current_line_buffer.size(); i++) {
+				if (current_line_buffer[i] != '\0') {
+					current_line_text.push_back(current_line_buffer[i]);
+				}
+			}
+
+			new_line_text.setString(current_line_text);
+		}
+
 		// Insert the new line at the correct position
 		int current_line = textfile.gap_buffer.GetCurrentLine();
 		text_lines.insert(text_lines.begin() + current_line, new_line_text);
+
+		// We could have the scenario that the gap end is not 
+		// located at the end of the gap itself
+		// In this specific case, we have a scenario where existing 
+		// text must be moved/changed both in the previous and current_line
+		if (line_before != textfile.gap_buffer.GetCurrentLine()) {
+			std::string previous_line_text = "";					// TO-DO: Remove this and create a more memory efficient solution						
+			std::vector<char> previous_line_buffer = textfile.gap_buffer.GetLines()[line_before];
+			for (int i = 0; i < previous_line_buffer.size(); i++) {
+				if (previous_line_buffer[i] != '\0') {
+					previous_line_text.push_back(previous_line_buffer[i]);
+				}
+			}
+			text_lines[line_before].setString(previous_line_text);
+		}
 
 		// Finally, loop through all of the text lines after the new line and re-arrange their positions;
 		for (int i = current_line; i < text_lines.size(); i++)
@@ -522,6 +549,8 @@ void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
 
 		PopulateCountBar(line_counter, textfile, text_font, line_counter_offset);
 		previous_line_selected = textfile.gap_buffer.GetCurrentLine();
+
+		PrintOutDebug(textfile);
 
 	}
 }
