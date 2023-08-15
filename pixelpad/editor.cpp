@@ -597,12 +597,24 @@ void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
 		if (line_before != textfile.gap_buffer.GetCurrentLine()) {
 			std::string previous_line_text = "";					// TO-DO: Remove this and create a more memory efficient solution						
 			std::vector<char> previous_line_buffer = textfile.gap_buffer.GetLines()[line_before];
+
+			int regular_char_count = 0;
+
 			for (int i = 0; i < previous_line_buffer.size(); i++) {
 				if (previous_line_buffer[i] != '\0') {
 					previous_line_text.push_back(previous_line_buffer[i]);
+					regular_char_count++;
 				}
+			} 
+
+			// if there are no regular characters on the new line, we can asume that no content was moved
+			// Therefore, we set the string as " " (in order to be able to highlight it)
+			if (regular_char_count == 0) {
+				text_lines[line_before].setString(" ");
 			}
-			text_lines[line_before].setString(previous_line_text);
+			else {
+				text_lines[line_before].setString(previous_line_text);
+			}
 		}
 
 		// Finally, loop through all of the text lines after the new line and re-arrange their positions;
