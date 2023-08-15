@@ -28,6 +28,8 @@ void SetSelectionIndexes(TextFile& textfile, std::tuple<int, int> selection_star
 void DeleteSelection(std::vector<std::tuple<int, int>> highlight_indexes, TextFile& textfile, std::vector<sf::Text>& text_lines, std::tuple<int, int> selection_start, std::tuple<int, int> selection_end);
 void DrawLineCountBar(std::vector<sf::Text>& line_counter, sf::RenderWindow& window, TextFile& textfile);
 void PopulateCountBar(std::vector<sf::Text>& line_counter, TextFile& textfile, sf::Font& text_font, sf::Vector2f line_count_offset);
+void TextInputHelper(sf::Event& e, TextFile& textfile);
+
 
 // <----------------- Graphical settings & configuration ----------------------------------->
 static const float DEFAULT_SCREEN_WIDTH = 1024.f;
@@ -101,7 +103,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	}
 
 	PopulateCountBar(line_counter, textfile, text_font, line_counter_offset);
-
+	
 	while (window.isOpen())
 	{
 		while (window.pollEvent(e))
@@ -172,16 +174,71 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	return 0;
 }
 
+void TextInputHelper(sf::Event& e, TextFile& textfile) {
+
+	// If the user presses { and it isn't inside a "" or ''
+	if (e.text.unicode == '{' || e.text.unicode == '[') {
+
+		std::vector<char> current_line = textfile.gap_buffer.GetLines()[textfile.gap_buffer.GetCurrentLine()];
+
+		int gap_end = textfile.gap_buffer.GetGapEnd();
+		int gap_start = textfile.gap_buffer.GetGapStart();
+
+		// If the gap end is not located at the end and the gap start is not at the 0th index,
+		// we can check if the user is placing { within '' or ""
+		if (gap_end != textfile.gap_buffer.GetLines()[textfile.gap_buffer.GetCurrentLine()].size() - 1
+			&& gap_start != 0) {
+			
+			if (current_line[gap_start - 1] == '\'' && current_line[gap_start + 1] == '\'')
+			{
+				// The user is trying to place it within '' => place only one of the characters
+				textfile.gap_buffer.InsertCharacter(e.text.unicode);
+				return;
+			}
+			if (current_line[gap_start - 1] == '"' && current_line[gap_start + 1] == '"')
+			{
+				// The user is trying to place it within "" => place only one of the characters
+				textfile.gap_buffer.InsertCharacter(e.text.unicode);
+				return;
+			}
+		}
+
+		// Otherwise, we put two characters and shift one index back to put the gap in-between
+		if (e.text.unicode == '{') {
+			textfile.gap_buffer.InsertCharacter('{');
+			textfile.gap_buffer.InsertCharacter('}');
+		}
+
+		if (e.text.unicode == '[') {
+			textfile.gap_buffer.InsertCharacter('[');
+			textfile.gap_buffer.InsertCharacter(']');
+		}
+
+		// now, the gap buffer would look something like this [a,b,c,{,},_,_,_]
+		// We need to shift one index back
+		textfile.gap_buffer.MoveGapLeft();
+
+		return;
+
+	}
+
+	// If none of the above special cases apply, enter the unicode as normally.
+	textfile.gap_buffer.InsertCharacter(e.text.unicode);
+}
 
 void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines)
 {
 	if (event.text.unicode != '\b' && event.text.unicode != '\r' &&
 		event.key.code != sf::Keyboard::Left && event.key.code != sf::Keyboard::Right)
 	{
-		textfile.gap_buffer.InsertCharacter(event.text.unicode);
+		
+		TextInputHelper(event, textfile);
+
 		int current_line = textfile.gap_buffer.GetCurrentLine();
+
 		std::vector<char> changed_line = textfile.gap_buffer.GetLines()[current_line];
 		std::string temp_line;
+
 		for (int i = 0; i < changed_line.size(); i++) {
 			if (changed_line[i] != '\0') {
 				temp_line.push_back(changed_line[i]);
@@ -238,7 +295,6 @@ void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<
 			previous_line_selected = textfile.gap_buffer.GetCurrentLine();
 
 		}
-		//PrintOutDebug(textfile);
 	}
 
 }
@@ -272,7 +328,6 @@ void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode) {
 
 	user_typed_tick = true;
 	user_typed_tick_counter = USER_TYPED_TICK_CD;
-	//PrintOutDebug(textfile);
 }
 
 void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode,
@@ -280,7 +335,6 @@ void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode,
 	bool& shift_held_down, std::vector<std::tuple<int, int>>& highlight_indexes)
 {
 	// Record the selection_start only the first time that the user presses any of the keys, after which turn on selection mode
-
 	if (e.key.code == sf::Keyboard::Left || e.key.code == sf::Keyboard::Right) {
 		if (!selection_mode && shift_held_down) {
 			selection_start = std::make_tuple(textfile.gap_buffer.GetCurrentLine(), textfile.gap_buffer.GetGapStart());
