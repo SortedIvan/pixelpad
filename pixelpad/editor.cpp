@@ -49,6 +49,11 @@ static bool user_typed_tick = false;
 static int user_typed_tick_counter = 0;
 
 
+//<---------------------------------- Command line ----------------------------------------->
+static std::string current_command = "";
+bool command_mode = false;
+
+
 int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 {
 	// Use one method for handling the opening of files? Can add an explicit check if there are more than 1 files opened, if yes -> don't open a new window
@@ -67,14 +72,15 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	sf::View view(sf::Vector2f(DEFAULT_SCREEN_WIDTH / 2.f, DEFAULT_SCREEN_HEIGHT / 2.f),
 		sf::Vector2f(DEFAULT_SCREEN_WIDTH, DEFAULT_SCREEN_HEIGHT));
 
-	sf::Vector2f text_offset(50.f, 20.f);
-	sf::Vector2f line_counter_offset(20.f, 20.f);
+	sf::Vector2f text_offset(50.f, 20.f); // Offset for the text lines
+	sf::Vector2f line_counter_offset(20.f, 20.f); // Offset for the left line count bar
 
 	TryLoadFont(text_font, "./8bitfont.ttf"); // Loads the font into the system -> TODO: Move this to happen only once in the main file
 
 	std::vector<sf::Text> text_lines;
 	std::vector<sf::Text> line_counter;
 
+	// Temporary string that we use to initialize the gap buffer -> TODO: Remove this and create a more memory efficient solution
 	std::string temp_content_string;
 	std::vector<std::vector<char>> temp_lines = textfile.gap_buffer.GetLines();
 
@@ -85,6 +91,10 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	std::tuple<int, int> selection_end;					   // else if the line of selection_end < selection_start, we have to go from start to end
 	std::vector<std::tuple<int, int>> highlight_indexes;   // Arrays of tuples used to represent positions in the text array
 	std::vector<std::tuple<int, int>> already_highlighted;
+
+	// <------------- MISC ---------------------------->
+	bool ctrl_held_down = false;
+	// --
 
 	// Initialize the text objects for each line in the opened file
 	for (int i = 0; i < temp_lines.size(); ++i) {
@@ -102,51 +112,82 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 		temp_content_string = ""; // reset the temp string
 	}
 
+	// The countbar represents the line counter on the left side of the editor
+	// After we initialize the gap buffer, as well as all of the text lines, we populate the line count vector
 	PopulateCountBar(line_counter, textfile, text_font, line_counter_offset);
 	
 	while (window.isOpen())
 	{
 		while (window.pollEvent(e))
 		{
+
+			if (e.key.code == 27) { // Unicode for escape
+				if (command_mode) {
+					command_mode = false;
+					continue;
+				}
+			}
+
+			if (e.text.unicode == 16) { // CTRL + Q for command mode
+				command_mode = true;
+				ctrl_held_down = false;
+				//std::cout << "Command mode activated";
+				continue;
+			}
 			// <------------- handle input ---------------------->
 			if (e.type == sf::Event::TextEntered)
 			{
-				if (e.key.code == 'q') {
-					PrintSelectedChars(selection_start, selection_end, textfile, highlight_indexes);
-					continue;
+
+				//std::cout << e.key.code;
+
+				if (!command_mode) {
+					HandleUserInput(e, textfile, text_lines);
+					HandleDelete(e, textfile, text, text_lines, text_offset, line_counter, text_font, line_counter_offset);
 				}
-
-				HandleUserInput(e, textfile, text_lines);
-				HandleDelete(e, textfile, text, text_lines, text_offset,line_counter, text_font, line_counter_offset);
-
 			}
-			// <------------- handle cursor movement ---------------------->
 			if (e.type == sf::Event::KeyPressed)
 			{
+				if (!command_mode) {
+					if (e.key.code == sf::Keyboard::LShift) {
 
-				if (e.key.code == sf::Keyboard::LShift) {
-					shift_held_down = true;
+						if (ctrl_held_down) {
+							ctrl_held_down = false;
+						}
+					
+						shift_held_down = true;
+					}
+					if (e.key.code == sf::Keyboard::LControl) {
+						if (shift_held_down) {
+							shift_held_down = false;
+						}
+						ctrl_held_down = true;
+						std::cout << "Ctrl held down";
+					}
+
+					HandleLeftRightKeys(e, textfile, selection_mode, selection_start, selection_end, shift_held_down, highlight_indexes);
+					HandleUpDownKeys(e, textfile, selection_mode);
+					HandleEnter(e, text_lines, textfile, text_font, text_offset, line_counter, line_counter_offset);
 				}
-
-
-				HandleLeftRightKeys(e, textfile, selection_mode, selection_start, selection_end, shift_held_down, highlight_indexes);
-				HandleUpDownKeys(e, textfile, selection_mode);
-				HandleEnter(e, text_lines, textfile, text_font, text_offset, line_counter, line_counter_offset);
 			}
 
-			if (e.type == sf::Event::KeyReleased) {
+			if (!command_mode) {
+				if (e.type == sf::Event::KeyReleased) {
 
-				if (e.key.code == sf::Keyboard::LShift) {
-					shift_held_down = false;
+					if (e.key.code == sf::Keyboard::LShift) {
+						shift_held_down = false;
+					}
+
+					if (e.key.code == sf::Keyboard::LControl) {
+						ctrl_held_down = false;
+						//std::cout << "ctrl released";
+					}
 				}
 			}
 
 			if (e.type == sf::Event::Resized)
 			{
-
 				// When the window is resized, update the view to match the new size
 				view.reset(sf::FloatRect(0.f, 0.f, static_cast<float>(window.getSize().x), static_cast<float>(window.getSize().y)));
-
 			}
 
 			if (e.type == sf::Event::Closed)
@@ -174,10 +215,54 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	return 0;
 }
 
+void ExecuteCommand() {
+	if (command_mode) {
+
+		// If there is nothing to interpret, stop command
+		if (current_command.size() == 0) {
+			command_mode = false;
+			return;
+		}
+
+		std::string command_type = "";
+		command_type.push_back(current_command[0]); // GET THE FIRST TWO CHARS FOR THE CMD
+		command_type.push_back(current_command[1]);
+
+		if (command_type != "rp") { // TODO: Replace this with a list of commands when there's one
+			return; 
+		}
+
+		int line_one = 0;
+		int line_two = 0;
+
+		bool fill_line_two = false;
+
+		try {
+			for (int i = 2; i < current_command.size(); i++) {
+				if (current_command[i] == ':') {
+					fill_line_two = true;
+				}
+
+				if (!fill_line_two) {
+					line_one += std::stoi(&current_command[i]);
+				}
+				else {
+					line_two += std::stoi(&current_command[i]);
+				}
+
+			}
+			std::cout << command_type << " " << line_one << ":" << line_two;
+		}
+		catch (const std::exception & e) { // if it fails, then the command was wrong
+			return;
+		}
+	}
+}
+
 void TextInputHelper(sf::Event& e, TextFile& textfile) {
 
 	// If the user presses { and it isn't inside a "" or ''
-	if (e.text.unicode == '{' || e.text.unicode == '[') {
+	if (e.text.unicode == '{' || e.text.unicode == '[' || e.text.unicode == '(') {
 
 		std::vector<char> current_line = textfile.gap_buffer.GetLines()[textfile.gap_buffer.GetCurrentLine()];
 
@@ -189,13 +274,13 @@ void TextInputHelper(sf::Event& e, TextFile& textfile) {
 		if (gap_end != textfile.gap_buffer.GetLines()[textfile.gap_buffer.GetCurrentLine()].size() - 1
 			&& gap_start != 0) {
 			
-			if (current_line[gap_start - 1] == '\'' && current_line[gap_start + 1] == '\'')
+			if (current_line[gap_start - 1] == '\'' && current_line[gap_end + 1] == '\'')
 			{
 				// The user is trying to place it within '' => place only one of the characters
 				textfile.gap_buffer.InsertCharacter(e.text.unicode);
 				return;
 			}
-			if (current_line[gap_start - 1] == '"' && current_line[gap_start + 1] == '"')
+			if (current_line[gap_start - 1] == '"' && current_line[gap_end + 1] == '"')
 			{
 				// The user is trying to place it within "" => place only one of the characters
 				textfile.gap_buffer.InsertCharacter(e.text.unicode);
@@ -214,24 +299,33 @@ void TextInputHelper(sf::Event& e, TextFile& textfile) {
 			textfile.gap_buffer.InsertCharacter(']');
 		}
 
+		if (e.text.unicode == '(') {
+			textfile.gap_buffer.InsertCharacter('(');
+			textfile.gap_buffer.InsertCharacter(')');
+		}
+
 		// now, the gap buffer would look something like this [a,b,c,{,},_,_,_]
 		// We need to shift one index back
 		textfile.gap_buffer.MoveGapLeft();
-
 		return;
 
 	}
 
 	// If none of the above special cases apply, enter the unicode as normally.
 	textfile.gap_buffer.InsertCharacter(e.text.unicode);
+	PrintOutDebug(textfile);
+}
+
+void HandleCommandInput() {
+
 }
 
 void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines)
 {
 	if (event.text.unicode != '\b' && event.text.unicode != '\r' &&
-		event.key.code != sf::Keyboard::Left && event.key.code != sf::Keyboard::Right)
+		event.key.code != sf::Keyboard::Left && event.key.code != sf::Keyboard::Right && event.text.unicode != 36 
+		&& event.key.code != sf::Keyboard::Escape)
 	{
-		
 		TextInputHelper(event, textfile);
 
 		int current_line = textfile.gap_buffer.GetCurrentLine();
@@ -249,7 +343,6 @@ void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>
 		user_typed_tick_counter = USER_TYPED_TICK_CD;
 
 		PrintOutDebug(textfile);
-
 	}
 }
 
@@ -293,7 +386,6 @@ void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<
 			PopulateCountBar(line_counter, textfile, text_font, line_counter_offset);
 
 			previous_line_selected = textfile.gap_buffer.GetCurrentLine();
-
 		}
 	}
 
@@ -356,6 +448,8 @@ void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode,
 		selection_end = std::make_tuple(textfile.gap_buffer.GetCurrentLine(), textfile.gap_buffer.GetGapStart());
 		SetSelectionIndexes(textfile, selection_start, selection_end, highlight_indexes);
 	}
+
+	PrintOutDebug(textfile);
 }
 
 void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile, std::vector<std::tuple<int,int>> highlight_indexes) {
@@ -409,7 +503,6 @@ void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, in
 void DeleteSelection(std::vector<std::tuple<int,int>> highlight_indexes, TextFile& textfile,
 	std::vector<sf::Text>& text_lines, std::tuple<int, int> selection_start, std::tuple<int, int> selection_end) {
 
-
 	std::vector<std::vector<char>> lines = textfile.gap_buffer.GetLines();
 	std::string selected_characters = "";
 
@@ -453,6 +546,7 @@ void DeleteSelection(std::vector<std::tuple<int,int>> highlight_indexes, TextFil
 	}
 
 	std::cout << selected_characters;
+
 
 
 }
@@ -526,8 +620,6 @@ void PopulateCountBar(std::vector<sf::Text>& line_counter, TextFile& textfile, s
 
 	int line_count = textfile.gap_buffer.GetLines().size();
 	
-
-
 	sf::Text line_count_text;
 
 	line_count_text.setCharacterSize(20);
@@ -562,6 +654,7 @@ void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
 		new_line_text.setString(" ");
 		new_line_text.setFillColor(sf::Color::White);
 
+		// if the line has changed after pressing enter (added due some special cases)
 		if (line_before != textfile.gap_buffer.GetCurrentLine()) {
 			std::vector<char> current_line_buffer = textfile.gap_buffer.GetLines()[textfile.gap_buffer.GetCurrentLine()];
 			std::string current_line_text = "";
@@ -626,9 +719,6 @@ void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
 
 		PopulateCountBar(line_counter, textfile, text_font, line_counter_offset);
 		previous_line_selected = textfile.gap_buffer.GetCurrentLine();
-
-		PrintOutDebug(textfile);
-
 	}
 }
 
