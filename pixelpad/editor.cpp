@@ -313,7 +313,6 @@ void TextInputHelper(sf::Event& e, TextFile& textfile) {
 
 	// If none of the above special cases apply, enter the unicode as normally.
 	textfile.gap_buffer.InsertCharacter(e.text.unicode);
-	PrintOutDebug(textfile);
 }
 
 void HandleCommandInput() {
@@ -342,7 +341,6 @@ void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>
 		user_typed_tick = true;
 		user_typed_tick_counter = USER_TYPED_TICK_CD;
 
-		PrintOutDebug(textfile);
 	}
 }
 
@@ -438,10 +436,8 @@ void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode,
 		textfile.gap_buffer.MoveGapLeft();
 	}
 
-	//PrintOutDebug(textfile);					
 	if (e.key.code == sf::Keyboard::Right) {
 		textfile.gap_buffer.MoveGapRight();
-		//PrintOutDebug(textfile);
 	}
 
 	if (selection_mode) {
@@ -449,7 +445,13 @@ void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode,
 		SetSelectionIndexes(textfile, selection_start, selection_end, highlight_indexes);
 	}
 
-	PrintOutDebug(textfile);
+	for (int i = 0; i < highlight_indexes.size(); i++) {
+		std::cout << std::endl;
+		std::cout << "(" << std::get<0>(highlight_indexes[i]);
+		std::cout << ",";
+		std::cout << std::get<1>(highlight_indexes[i]) << ")";
+		std::cout << std::endl;
+	}
 }
 
 void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile, std::vector<std::tuple<int,int>> highlight_indexes) {
