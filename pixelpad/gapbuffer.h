@@ -29,6 +29,9 @@ public:
 
 
 	std::vector<std::vector<char>> GetLines();
+	void SetLine(int line_nr, const std::vector<char>& content);
+	void SetCharacter(int line_nr, int index, char character);
+
 
 	void InsertCharacter(char character);
 	void DeleteCharacter();

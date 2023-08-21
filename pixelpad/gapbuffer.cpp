@@ -17,6 +17,17 @@ std::vector<std::vector<char>> GapBuffer::GetLines() {
 	return this->lines;
 }
 
+// <----- Optional methods for modifying the gap outside the gap class itself -------->
+// THIS COULD LEAD TO POTENTIAL UNEXPECTED SIDE EFFECTS
+void GapBuffer::SetLine(int line_nr, const std::vector<char>& content) {
+	this->lines[line_nr] = content;
+}
+
+void GapBuffer::SetCharacter(int line_nr, int index, char character) {
+	this->lines[line_nr][index] = character;
+}
+
+
 void GapBuffer::SetGapStart(int new_position) {
 	gap_starts[current_line] = new_position;
 }
@@ -355,7 +366,7 @@ void GapBuffer::MoveLineDown() {
 	}
 
 	current_line += 1;
-
+	
 	//PrintGapDebug(gap_starts, gap_ends, gap_sizes, current_line);
 }
 
