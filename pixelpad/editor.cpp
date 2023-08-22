@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <tuple>
 #include <windows.h>
+#include <typeinfo>
 
 void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines);
 void PrintOutDebug(TextFile& textfile);
@@ -30,6 +31,7 @@ void DrawLineCountBar(std::vector<sf::Text>& line_counter, sf::RenderWindow& win
 void PopulateCountBar(std::vector<sf::Text>& line_counter, TextFile& textfile, sf::Font& text_font, sf::Vector2f line_count_offset);
 void TextInputHelper(sf::Event& e, TextFile& textfile);
 void HandleCommandMode();
+void HandleUpAndDownIndexing(TextFile& textfile, const int old_line);
 
 // <----------------- Graphical settings & configuration ----------------------------------->
 static const float DEFAULT_SCREEN_WIDTH = 1024.f;
@@ -37,6 +39,7 @@ static const float DEFAULT_SCREEN_HEIGHT = 900.f;
 static const sf::Color transparent_hightlight(255, 255, 255, 30);			// RGBA(255, 255, 255, 30)
 static const sf::Color full_highlight(255, 255, 255, 150);					// RGBA(255, 255, 255, 150)
 static const sf::Color line_count_color(0x73, 0x93, 0xB3);
+static const sf::Color default_bg_color(0x00, 0x01, 0x33);
 static int previous_line_selected = 0;
 
 
@@ -81,7 +84,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	sf::Vector2f text_offset(50.f, 20.f); // Offset for the text lines
 	sf::Vector2f line_counter_offset(20.f, 20.f); // Offset for the left line count bar
 
-	TryLoadFont(text_font, "./8bitfont.ttf"); // Loads the font into the system -> TODO: Move this to happen only once in the main file
+	TryLoadFont(text_font, "./testfont.ttf"); // Loads the font into the system -> TODO: Move this to happen only once in the main file
 
 	std::vector<sf::Text> text_lines;
 	std::vector<sf::Text> line_counter;
@@ -204,7 +207,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 
 		// After all of the events, update the editor state
 		// --------- clear the screen ----------
-		window.clear(sf::Color::Black);
+		window.clear(default_bg_color);
 
 		// Set the view here
 		window.setView(view);
@@ -232,12 +235,16 @@ void ExecuteCommand() {
 		// If there is nothing to interpret, stop command
 		if (current_command.size() == 0) {
 			command_mode = false;
+			current_command = "";
 			return;
 		}
 
 		std::string command_type = "";
+
 		command_type.push_back(current_command[0]); // GET THE FIRST TWO CHARS FOR THE CMD
 		command_type.push_back(current_command[1]);
+		
+		
 
 		if (command_type != "rp") { // TODO: Replace this with a list of commands when there's one
 			return; 
@@ -348,9 +355,6 @@ void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>
 		text_lines[current_line].setString(temp_line);
 		user_typed_tick = true;
 		user_typed_tick_counter = USER_TYPED_TICK_CD;
-
-
-		PrintOutDebug(textfile);
 	}
 }
 
@@ -418,98 +422,112 @@ void PrintOutDebug(TextFile& textfile)
 }
 
 
+// Helper function to help with up and down indexing handling for the different types of index modes
+void HandleUpAndDownIndexing(TextFile& textfile, const int old_line) {
+	if (index_mode == SaveIndex) { // If in save index mode, don't do the next steps
+		return;
+	}
+
+	// Get the gap starts of the two lines to check the difference
+	int old_line_gap_start = textfile.gap_buffer.GetGapStarts()[old_line];
+	int new_line_gap_start = textfile.gap_buffer.GetGapStart();
+
+	int current_line = textfile.gap_buffer.GetCurrentLine();
+
+	//if () do pre optimization and check if the gap start is already what we need it to be
+
+
+	if (old_line_gap_start == new_line_gap_start) {
+		std::cout << std::endl;
+		std::cout << old_line_gap_start << std::endl;
+		std::cout << new_line_gap_start << std::endl;
+		return; // We don't need to do anything further
+	}
+
+	if (old_line_gap_start > new_line_gap_start) { // This means that the line we moved to has to have its index at the end
+
+		// 1) Set the gap start and gap ends for the current line
+
+		std::cout << std::endl;
+		std::cout << old_line_gap_start << std::endl;
+		std::cout << new_line_gap_start << std::endl;
+
+		int gap_buffer_size = textfile.gap_buffer.GetLines()[current_line].size();
+		int gap_start = textfile.gap_buffer.GetGapStart();
+		int gap_end = textfile.gap_buffer.GetGapEnd();
+
+		// shift the gap to the end, replacing all of the gap instances with characters & characters with \0 vice versa
+		for (int i = gap_end + 1; i < gap_buffer_size; i++) {
+			textfile.gap_buffer.SetCharacter(current_line, gap_start, textfile.gap_buffer.GetLines()[current_line][i]);
+			textfile.gap_buffer.SetCharacter(current_line, i, '\0');
+			gap_start++;
+			gap_end++;
+		}
+
+		// 2) Override the gap start and gap end
+		textfile.gap_buffer.SetGapStart(gap_start);
+		textfile.gap_buffer.SetGapEnd(gap_end);
+		return;
+	}
+	else {
+		// Otherwise, we can set the gap start to be equal to the old line gap start
+		std::vector<char> temp;
+
+		for (int i = 0; i < textfile.gap_buffer.GetLines()[current_line].size(); i++) {
+			if (old_line_gap_start == i) { // if the index is where we need to shift the gap to, push null character sequence
+				for (int k = 0; k < textfile.gap_buffer.GetGapSize(); k++) {
+					temp.push_back('\0');
+				}
+				if (textfile.gap_buffer.GetLines()[current_line][i] != '\0') { // Add any potential overwritten characters (if not null)
+					temp.push_back(textfile.gap_buffer.GetLines()[current_line].at(i));
+				}
+			}
+			else { // Otherwise, just add back the character in its correct space, keeping the structure
+				if (textfile.gap_buffer.GetLines()[current_line][i] != '\0') {
+					temp.push_back(textfile.gap_buffer.GetLines()[current_line].at(i));
+				}
+			}
+		}
+
+		// Finally, set the gap start and end
+		textfile.gap_buffer.SetGapStart(old_line_gap_start);
+		textfile.gap_buffer.SetGapEnd(old_line_gap_start + (textfile.gap_buffer.GetGapSize() - 1));
+
+		// Override the line (TODO: Change this to a more memory efficient solution)
+		textfile.gap_buffer.SetLine(current_line, temp);
+		return;
+	}
+}
+
 void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode) {
 	if (e.key.code == sf::Keyboard::Down) {
+
+		user_typed_tick = true;
+		user_typed_tick_counter = USER_TYPED_TICK_CD;
+
 		int old_line = textfile.gap_buffer.GetCurrentLine();
 		textfile.gap_buffer.MoveLineDown();
 
 		if (index_mode == SaveIndex) { // If in save index mode, don't do the next steps
 			return;
 		}
-
-		// Get the gap starts of the two lines to check the difference
-		int old_line_gap_start = textfile.gap_buffer.GetGapStarts()[old_line];
-		int new_line_gap_start = textfile.gap_buffer.GetGapStart();
-
-		int current_line = textfile.gap_buffer.GetCurrentLine();
-
-		//if () do pre optimization and check if the gap start is already what we need it to be
-
-		PrintOutDebug(textfile);
-
-		if (old_line_gap_start == new_line_gap_start) {
-			std::cout << std::endl;
-			std::cout << old_line_gap_start << std::endl;
-			std::cout << new_line_gap_start << std::endl;
-			return; // We don't need to do anything further
-		}
-
-		if (old_line_gap_start > new_line_gap_start) { // This means that the line we moved to has to have its index at the end
-
-			// 1) Set the gap start and gap ends for the current line
-
-			std::cout << std::endl;
-			std::cout << old_line_gap_start << std::endl;
-			std::cout << new_line_gap_start << std::endl;
-
-			int gap_buffer_size = textfile.gap_buffer.GetLines()[current_line].size();
-			int gap_start = textfile.gap_buffer.GetGapStart();
-			int gap_end = textfile.gap_buffer.GetGapEnd();
-
-			// shift the gap to the end, replacing all of the gap instances with characters & characters with \0 vice versa
-			for (int i = gap_end + 1; i < gap_buffer_size; i++) {
-				textfile.gap_buffer.SetCharacter(current_line, gap_start, textfile.gap_buffer.GetLines()[current_line][i]);
-				textfile.gap_buffer.SetCharacter(current_line, i, '\0');
-				gap_start++;
-				gap_end++;
-			}
-
-			// 2) Override the gap start and gap end
-			textfile.gap_buffer.SetGapStart(gap_start);
-			textfile.gap_buffer.SetGapEnd(gap_end);
-
-			PrintOutDebug(textfile);
-
-			return;
-		}
-		else {
-			// Otherwise, we can set the gap start to be equal to the old line gap start
-			std::vector<char> temp;
-
-			for (int i = 0; i < textfile.gap_buffer.GetLines()[current_line].size(); i++) {
-				if (old_line_gap_start == i) { // if the index is where we need to shift the gap to, push null character sequence
-					for (int k = 0; k < textfile.gap_buffer.GetGapSize(); k++) {
-						temp.push_back('\0');
-					}
-					if (textfile.gap_buffer.GetLines()[current_line][i] != '\0') { // Add any potential overwritten characters (if not null)
-						temp.push_back(textfile.gap_buffer.GetLines()[current_line].at(i));
-					}
-				}
-				else { // Otherwise, just add back the character in its correct space, keeping the structure
-					if (textfile.gap_buffer.GetLines()[current_line][i] != '\0') {
-						temp.push_back(textfile.gap_buffer.GetLines()[current_line].at(i));
-					}
-				}
-			}
-
-			// Finally, set the gap start and end
-			textfile.gap_buffer.SetGapStart(old_line_gap_start);
-			textfile.gap_buffer.SetGapEnd(old_line_gap_start + (textfile.gap_buffer.GetGapSize() - 1));
-
-			// Override the line (TODO: Change this to a more memory efficient solution)
-			textfile.gap_buffer.SetLine(current_line,temp);
-
-			PrintOutDebug(textfile);
-			return;
-		}
+		
+		HandleUpAndDownIndexing(textfile, old_line);
 	}
 
 	if (e.key.code == sf::Keyboard::Up) {
-		textfile.gap_buffer.MoveLineUp();
-	}
+		user_typed_tick = true;
+		user_typed_tick_counter = USER_TYPED_TICK_CD;
 
-	user_typed_tick = true;
-	user_typed_tick_counter = USER_TYPED_TICK_CD;
+		int old_line = textfile.gap_buffer.GetCurrentLine();
+		textfile.gap_buffer.MoveLineUp();
+
+		if (index_mode == SaveIndex) { // If in save index mode, don't do the next steps
+			return;
+		}
+
+		HandleUpAndDownIndexing(textfile, old_line);
+	}
 }
 
 
@@ -538,13 +556,13 @@ void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode,
 		SetSelectionIndexes(textfile, selection_start, selection_end, highlight_indexes);
 	}
 
-	for (int i = 0; i < highlight_indexes.size(); i++) {
-		std::cout << std::endl;
-		std::cout << "(" << std::get<0>(highlight_indexes[i]);
-		std::cout << ",";
-		std::cout << std::get<1>(highlight_indexes[i]) << ")";
-		std::cout << std::endl;
-	}
+	//for (int i = 0; i < highlight_indexes.size(); i++) {
+	//	std::cout << std::endl;
+	//	std::cout << "(" << std::get<0>(highlight_indexes[i]);
+	//	std::cout << ",";
+	//	std::cout << std::get<1>(highlight_indexes[i]) << ")";
+	//	std::cout << std::endl;
+	//}
 }
 
 void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile, std::vector<std::tuple<int,int>> highlight_indexes) {

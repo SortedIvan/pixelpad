@@ -151,6 +151,7 @@
     <ClInclude Include="textfile.h" />
   </ItemGroup>
   <ItemGroup>
+    <Font Include="..\..\..\..\Downloads\testfont.ttf" />
     <Font Include="8bitfont.ttf" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
