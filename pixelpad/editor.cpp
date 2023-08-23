@@ -19,11 +19,12 @@ void TryLoadFont(sf::Font& font, std::string path);
 void ResizeView(const sf::RenderWindow& window, sf::View& view);
 void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window);
 void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
-	 TextFile& textfile, sf::Font& text_font, sf::Vector2f offset, std::vector<sf::Text>& line_counter, sf::Vector2f& line_counter_offset);
-void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode);
+	 TextFile& textfile, sf::Font& text_font, sf::Vector2f offset, std::vector<sf::Text>& line_counter, 
+	sf::Vector2f& line_counter_offset, sf::View& view);
+void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode, bool& ctrl_pressed, sf::View& view, sf::RenderWindow& window);
 void DrawAllTextLines(std::vector<sf::Text>& text_lines, sf::RenderWindow& window);
 	 sf::Text CreateInitialTextLine(sf::Font& font, const sf::Vector2f& offset, int multiplier, std::string content);
-void HighlightTypingPosition(sf::Text& current_text_line, sf::Font& font, int current_line_index, sf::RenderWindow& window);
+void HighlightTypingPosition(sf::Text& current_text_line, sf::Font& font, int current_line_index, sf::RenderWindow& window, sf::View& view);
 void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile, std::vector<std::tuple<int, int>> highlight_indexes);
 void DrawLineCountBar(std::vector<sf::Text>& line_counter, sf::RenderWindow& window, TextFile& textfile);
 void PopulateCountBar(std::vector<sf::Text>& line_counter, TextFile& textfile, sf::Font& text_font, sf::Vector2f line_count_offset);
@@ -47,7 +48,9 @@ static int tick_counter = 0;
 static bool tick_type = true;
 static bool user_typed_tick = false;
 static int user_typed_tick_counter = 0;
-
+static sf::Vector2f cursor_position;
+static sf::Vector2f old_cursor_position;
+static sf::Vector2f cursor_size;
 
 //<---------------------------------- Command line ----------------------------------------->
 static std::string current_command = "";
@@ -78,8 +81,8 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	sf::View view(sf::Vector2f(DEFAULT_SCREEN_WIDTH / 2.f, DEFAULT_SCREEN_HEIGHT / 2.f),
 		sf::Vector2f(DEFAULT_SCREEN_WIDTH, DEFAULT_SCREEN_HEIGHT));
 
-	sf::Vector2f text_offset(50.f, 20.f); // Offset for the text lines
-	sf::Vector2f line_counter_offset(20.f, 20.f); // Offset for the left line count bar
+	sf::Vector2f text_offset(100.f, 20.f); // Offset for the text lines
+	sf::Vector2f line_counter_offset(40.f, 20.f); // Offset for the left line count bar
 
 	TryLoadFont(text_font, "./testfont.ttf"); // Loads the font into the system -> TODO: Move this to happen only once in the main file
 
@@ -180,8 +183,8 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 					}
 
 					HandleLeftRightKeys(e, textfile, selection_mode, selection_start, selection_end, shift_held_down, highlight_indexes);
-					HandleUpDownKeys(e, textfile, selection_mode);
-					HandleEnter(e, text_lines, textfile, text_font, text_offset, line_counter, line_counter_offset);
+					HandleUpDownKeys(e, textfile, selection_mode, ctrl_held_down, view, window);
+					HandleEnter(e, text_lines, textfile, text_font, text_offset, line_counter, line_counter_offset, view);
 				}
 			}
 
@@ -219,7 +222,7 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 		window.setView(view);
 
 		// --------- draw on the screen ---------
-		HighlightTypingPosition(text_lines[textfile.gap_buffer.GetCurrentLine()], text_font, textfile.gap_buffer.GetGapStart(), window);
+		HighlightTypingPosition(text_lines[textfile.gap_buffer.GetCurrentLine()], text_font, textfile.gap_buffer.GetGapStart(), window, view);
 		DrawAllTextLines(text_lines, window);
 		DrawLineCountBar(line_counter, window, textfile);
 
@@ -505,34 +508,61 @@ void HandleUpAndDownIndexing(TextFile& textfile, const int old_line) {
 	}
 }
 
-void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode) {
+void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode, bool& ctrl_pressed, sf::View& view, sf::RenderWindow& window) {
 	if (e.key.code == sf::Keyboard::Down) {
 
-		user_typed_tick = true;
-		user_typed_tick_counter = USER_TYPED_TICK_CD;
+		if (!ctrl_pressed) {
+			user_typed_tick = true;
+			user_typed_tick_counter = USER_TYPED_TICK_CD;
 
-		int old_line = textfile.gap_buffer.GetCurrentLine();
-		textfile.gap_buffer.MoveLineDown();
+			int old_line = textfile.gap_buffer.GetCurrentLine();
+			textfile.gap_buffer.MoveLineDown();
 
-		if (index_mode == SaveIndex) { // If in save index mode, don't do the next steps
-			return;
+			if (index_mode == SaveIndex) { // If in save index mode, don't do the next steps
+				return;
+			}
+
+			HandleUpAndDownIndexing(textfile, old_line);
+		}
+		else {
+			view.move(sf::Vector2f(0.f, 20.f));
+
+			std::cout << std::endl;
+			std::cout << view.getCenter().y;
+			std::cout << std::endl;
 		}
 		
-		HandleUpAndDownIndexing(textfile, old_line);
 	}
 
 	if (e.key.code == sf::Keyboard::Up) {
-		user_typed_tick = true;
-		user_typed_tick_counter = USER_TYPED_TICK_CD;
 
-		int old_line = textfile.gap_buffer.GetCurrentLine();
-		textfile.gap_buffer.MoveLineUp();
+		if (!ctrl_pressed) {
 
-		if (index_mode == SaveIndex) { // If in save index mode, don't do the next steps
-			return;
+			user_typed_tick = true;
+			user_typed_tick_counter = USER_TYPED_TICK_CD;
+
+			int old_line = textfile.gap_buffer.GetCurrentLine();
+			textfile.gap_buffer.MoveLineUp();
+
+			if (index_mode == SaveIndex) { // If in save index mode, don't do the next steps
+				return;
+			}
+
+			HandleUpAndDownIndexing(textfile, old_line);
+
 		}
+		else {
 
-		HandleUpAndDownIndexing(textfile, old_line);
+			if (view.getCenter().y == DEFAULT_SCREEN_HEIGHT / 2.f) {
+				return;
+			}
+
+			std::cout << view.getCenter().y;
+			std::cout << std::endl;
+			std::cout << DEFAULT_SCREEN_HEIGHT / 2.f;
+
+			view.move(sf::Vector2f(0.f, -20.f));
+		}
 	}
 }
 
@@ -652,7 +682,8 @@ void PopulateCountBar(std::vector<sf::Text>& line_counter, TextFile& textfile, s
 
 
 void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
-	TextFile& textfile, sf::Font& text_font, sf::Vector2f offset,std::vector<sf::Text>& line_counter, sf::Vector2f& line_counter_offset) {
+	TextFile& textfile, sf::Font& text_font, sf::Vector2f offset,std::vector<sf::Text>& line_counter,
+	sf::Vector2f& line_counter_offset, sf::View& view) {
 	if (e.key.code == sf::Keyboard::Enter) {
 
 		// Capturing the count of the line before, as creating a new line might need re-arrangement
@@ -764,14 +795,31 @@ void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window)
 
 // Check whether the user has pressed a key with user_typed_tick
 // Depending on the bool, the highlight either stays fully filled or blinks in a less transparent mode
-void HighlightTypingPosition(sf::Text& current_text_line, sf::Font& font, int current_line_index, sf::RenderWindow& window) {
+void HighlightTypingPosition(sf::Text& current_text_line, sf::Font& font, int current_line_index, sf::RenderWindow& window, sf::View& view) {
 	sf::RectangleShape rect;
 	rect.setPosition(current_text_line.findCharacterPos(current_line_index).x +
 		font.getGlyph('\0', 20, 0).bounds.left, current_text_line.getGlobalBounds().top +
 		(current_text_line.getGlobalBounds().height + font.getGlyph('\0', 20, 0).bounds.top));
 	rect.setSize(sf::Vector2f(font.getGlyph('\0', 20, 0).bounds.width, font.getGlyph('\0', 20, 0).bounds.height));
 
-	//std::cout << " - " << (std::string)current_text_line.getString() << " - ";
+	cursor_position = rect.getPosition();
+	cursor_size = rect.getSize();
+
+	if (cursor_position != old_cursor_position) { // we save the cursor position and check whether there's been a change with its position
+
+		// Update rectangle's position and check if it's beyond the view's bottom, moving the screen accordingly
+		sf::Vector2f rectBottom = cursor_position + sf::Vector2f(0.f, cursor_size.y);
+		if (rectBottom.y > view.getCenter().y + view.getSize().y / 2.f) {
+			view.move(sf::Vector2f(0.f, 20.f));
+		}
+		else if (cursor_position.y < view.getCenter().y - view.getSize().y / 2.f) {
+			view.move(sf::Vector2f(0.f, -20.f));
+		}
+
+
+		old_cursor_position = cursor_position;
+	}
+
 
 	if (user_typed_tick) {
 
