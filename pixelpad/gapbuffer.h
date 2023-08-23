@@ -34,7 +34,9 @@ public:
 
 
 	void InsertCharacter(char character);
+	void InsertCharacterManually(int line_index, char character);
 	void DeleteCharacter();
+	void DeleteLineManually(int line_count);
 
 	void FillBuffersFromContent(const std::vector<char>& content);
 	void ResizeGapMemory();

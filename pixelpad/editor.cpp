@@ -25,12 +25,9 @@ void DrawAllTextLines(std::vector<sf::Text>& text_lines, sf::RenderWindow& windo
 	 sf::Text CreateInitialTextLine(sf::Font& font, const sf::Vector2f& offset, int multiplier, std::string content);
 void HighlightTypingPosition(sf::Text& current_text_line, sf::Font& font, int current_line_index, sf::RenderWindow& window);
 void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile, std::vector<std::tuple<int, int>> highlight_indexes);
-void SetSelectionIndexes(TextFile& textfile, std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, std::vector<std::tuple<int, int>>& highlight_indexes);
-void DeleteSelection(std::vector<std::tuple<int, int>> highlight_indexes, TextFile& textfile, std::vector<sf::Text>& text_lines, std::tuple<int, int> selection_start, std::tuple<int, int> selection_end);
 void DrawLineCountBar(std::vector<sf::Text>& line_counter, sf::RenderWindow& window, TextFile& textfile);
 void PopulateCountBar(std::vector<sf::Text>& line_counter, TextFile& textfile, sf::Font& text_font, sf::Vector2f line_count_offset);
 void TextInputHelper(sf::Event& e, TextFile& textfile);
-void HandleCommandMode();
 void HandleUpAndDownIndexing(TextFile& textfile, const int old_line);
 
 // <----------------- Graphical settings & configuration ----------------------------------->
@@ -139,7 +136,16 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 
 			if (e.text.unicode == 16) { // CTRL + Q for command mode
 				command_mode = true;
+
+				std::cout << std::endl;
+				std::cout << "(" << std::get<0>(selection_start) << ", " << std::get<1>(selection_start) << ")";
+				std::cout << std::endl;
+				std::cout << "(" << std::get<0>(selection_end) << ", " << std::get<1>(selection_end) << ")";
+				std::cout << std::endl;
+
 				ctrl_held_down = false;
+				selection_mode = false;
+
 				//std::cout << "Command mode activated";
 				continue;
 			}
@@ -553,16 +559,7 @@ void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode,
 
 	if (selection_mode) {
 		selection_end = std::make_tuple(textfile.gap_buffer.GetCurrentLine(), textfile.gap_buffer.GetGapStart());
-		SetSelectionIndexes(textfile, selection_start, selection_end, highlight_indexes);
 	}
-
-	//for (int i = 0; i < highlight_indexes.size(); i++) {
-	//	std::cout << std::endl;
-	//	std::cout << "(" << std::get<0>(highlight_indexes[i]);
-	//	std::cout << ",";
-	//	std::cout << std::get<1>(highlight_indexes[i]) << ")";
-	//	std::cout << std::endl;
-	//}
 }
 
 void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile, std::vector<std::tuple<int,int>> highlight_indexes) {
@@ -610,103 +607,6 @@ void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, in
 
 	std::cout << selected_characters;
 
-}
-
-
-void DeleteSelection(std::vector<std::tuple<int,int>> highlight_indexes, TextFile& textfile,
-	std::vector<sf::Text>& text_lines, std::tuple<int, int> selection_start, std::tuple<int, int> selection_end) {
-
-	std::vector<std::vector<char>> lines = textfile.gap_buffer.GetLines();
-	std::string selected_characters = "";
-
-	int _selection_start = std::get<0>(selection_start);
-	int _selection_end = std::get<0>(selection_end);
-
-	int starting_character = std::get<1>(selection_start);
-	int ending_character = std::get<1>(selection_end);
-
-	if (_selection_end < _selection_start) {
-		for (int i = _selection_end; i < _selection_start + 1; i++) {
-			if (i == _selection_end) { // if we are at the final line, start the character collection from the ending character instead
-				for (int k = ending_character; k < lines[i].size(); k++) {
-					if (lines[i][k] != '\0') {
-						textfile.gap_buffer.GetLines()[i][k] = '\0';
-					}
-
-				}
-				textfile.gap_buffer.GetLines().erase(textfile.gap_buffer.GetLines().begin() + i);
-				continue;
-			}
-			if (i == _selection_start) { // if we are at the starting line, begin from the starting character
-				for (int k = starting_character; k < lines[i].size(); k++) {
-					if (lines[i][k] != '\0') {
-						textfile.gap_buffer.GetLines()[i][k] = '\0';
-					}
-				}
-				continue;
-			}
-
-			// else, just add everything from start to end
-			for (int k = 0; k < lines[i].size(); k++) {
-				if (lines[i][k] != '\0') {
-					textfile.gap_buffer.GetLines()[i][k] = '\0';
-				}
-			}
-
-			textfile.gap_buffer.GetLines().erase(textfile.gap_buffer.GetLines().begin() + i);
-
-		}
-	}
-
-	std::cout << selected_characters;
-
-
-
-}
-
-
-void SetSelectionIndexes(TextFile& textfile, std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, std::vector<std::tuple<int, int>>& highlight_indexes) {
-	int _selection_start = std::get<0>(selection_start);
-	int _selection_end = std::get<0>(selection_end);
-
-	int starting_character = std::get<1>(selection_start);
-	int ending_character = std::get<1>(selection_end);
-
-	std::vector<std::vector<char>> lines = textfile.gap_buffer.GetLines();
-
-	highlight_indexes.clear();
-
-
-	if (_selection_end < _selection_start) { // if the start is in some line below and the end is somewhere up, aka user selected from right to left and went up a line
-		for (int i = _selection_end; i < _selection_start + 1; i++) {
-			if (i == _selection_end) { // if we are at the final line, start the character collection from the ending character instead
-				for (int k = ending_character; k < lines[i].size(); k++) {
-
-					if (lines[i][k] != '\0') {
-						highlight_indexes.push_back(std::make_tuple(i, k));
-					}
-
-				}
-				continue;
-			}
-			if (i == _selection_end) { // if we are at the starting line, begin from the starting character
-				for (int k = starting_character; k < lines[i].size(); k++) {
-					if (lines[i][k] != '\0') {
-						highlight_indexes.push_back(std::make_tuple(i, k));
-					}
-				}
-				continue;
-			}
-
-			// else, just add everything from start to end
-			for (int k = 0; k < lines[i].size(); k++) {
-				if (lines[i][k] != '\0') {
-					highlight_indexes.push_back(std::make_tuple(i, k));
-				}
-			}
-		}
-		return; // finish after pushing the indexes into the vector
-	}
 }
 
 void DrawLineCountBar(std::vector<sf::Text>& line_counter, sf::RenderWindow& window, TextFile& textfile) {

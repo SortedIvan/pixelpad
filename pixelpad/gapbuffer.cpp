@@ -301,6 +301,14 @@ void NewLineContentSplit(bool& content_after_gap, int& previous_line, std::vecto
 	}
 }
 
+void GapBuffer::DeleteLineManually(int line_count) {
+	lines.erase(lines.begin() + line_count);
+}
+
+void GapBuffer::InsertCharacterManually(int line_index, char character) {
+	lines[line_index].push_back(character);
+}
+
 void GapBuffer::InsertNewLine() {
 
 	int previous_line = current_line;

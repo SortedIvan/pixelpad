@@ -33,6 +33,7 @@ TextFile::TextFile(std::string document_name, std::string document_path) {
 	GapBuffer gap_buffer(content);
 	this->gap_buffer = gap_buffer;
 }
+ 
 
 std::string TextFile::GetDocumentName() {
 	return document_name;
