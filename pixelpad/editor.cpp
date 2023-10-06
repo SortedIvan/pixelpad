@@ -12,7 +12,7 @@
 void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines);
 void PrintOutDebug(TextFile& textfile);
 void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode, std::tuple<int, int>& selection_start,
-	 std::tuple<int, int>& selection_end, bool& shift_held_down, std::vector<std::tuple<int, int>>& highlight_indexes);
+	 std::tuple<int, int>& selection_end, bool& shift_held_down);
 void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<sf::Text>& text_lines, sf::Vector2f offset,
 	 std::vector<sf::Text>& line_counter, sf::Font& text_font, sf::Vector2f& line_counter_offset);
 void TryLoadFont(sf::Font& font, std::string path);
@@ -25,7 +25,7 @@ void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode, bo
 void DrawAllTextLines(std::vector<sf::Text>& text_lines, sf::RenderWindow& window);
 	 sf::Text CreateInitialTextLine(sf::Font& font, const sf::Vector2f& offset, int multiplier, std::string content);
 void HighlightTypingPosition(sf::Text& current_text_line, sf::Font& font, int current_line_index, sf::RenderWindow& window, sf::View& view);
-void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile, std::vector<std::tuple<int, int>> highlight_indexes);
+void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile);
 void DrawLineCountBar(std::vector<sf::Text>& line_counter, sf::RenderWindow& window, TextFile& textfile);
 void PopulateCountBar(std::vector<sf::Text>& line_counter, TextFile& textfile, sf::Font& text_font, sf::Vector2f line_count_offset);
 void TextInputHelper(sf::Event& e, TextFile& textfile);
@@ -38,8 +38,6 @@ static const sf::Color transparent_hightlight(255, 255, 255, 30);			// RGBA(255,
 static const sf::Color full_highlight(255, 255, 255, 150);					// RGBA(255, 255, 255, 150)
 static const sf::Color line_count_color(0x73, 0x93, 0xB3);
 static const sf::Color default_bg_color(0x00, 0x01, 0x33);
-static int previous_line_selected = 0;
-
 
 //<------------------ Variables that control the tick (cursor) on the screen --------------->
 static const int TICK_COUNTDOWN = 5000;
@@ -53,15 +51,13 @@ static sf::Vector2f old_cursor_position;
 static sf::Vector2f cursor_size;
 
 //<---------------------------------- Command line ----------------------------------------->
-static std::string current_command = "";
-bool command_mode = false;
 
 enum IndexMode {
-	DefaultIndex,
-	SaveIndex
+	DefaultIndex, // absolute garbage, must be re-written. Should be default indexing for regular text editors
+	SaveIndex // Indexing option: the lines remember where the user was last typing
 };
 
-static IndexMode index_mode = DefaultIndex;
+static IndexMode index_mode = SaveIndex;
 
 int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 {
@@ -98,8 +94,6 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	bool shift_held_down = false;
 	std::tuple<int, int> selection_start;				   // if the line of selection_start > selection_end, we have to go up lines & copy characters from end to start
 	std::tuple<int, int> selection_end;					   // else if the line of selection_end < selection_start, we have to go from start to end
-	std::vector<std::tuple<int, int>> highlight_indexes;   // Arrays of tuples used to represent positions in the text array
-	std::vector<std::tuple<int, int>> already_highlighted;
 
 	// <------------- MISC ---------------------------->
 	bool ctrl_held_down = false;
@@ -129,76 +123,46 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	{
 		while (window.pollEvent(e))
 		{
-
-			if (e.key.code == 27) { // Unicode for escape
-				if (command_mode) {
-					command_mode = false;
-					continue;
-				}
-			}
-
-			if (e.text.unicode == 16) { // CTRL + Q for command mode
-				command_mode = true;
-
-				std::cout << std::endl;
-				std::cout << "(" << std::get<0>(selection_start) << ", " << std::get<1>(selection_start) << ")";
-				std::cout << std::endl;
-				std::cout << "(" << std::get<0>(selection_end) << ", " << std::get<1>(selection_end) << ")";
-				std::cout << std::endl;
-
-				ctrl_held_down = false;
-				selection_mode = false;
-
-				//std::cout << "Command mode activated";
-				continue;
-			}
 			// <------------- handle input ---------------------->
 			if (e.type == sf::Event::TextEntered)
 			{
+				HandleUserInput(e, textfile, text_lines);
+				HandleDelete(e, textfile, text, text_lines, text_offset, line_counter, text_font, line_counter_offset);
+				PrintOutDebug(textfile);
 
-				//std::cout << e.key.code;
-
-				if (!command_mode) {
-					HandleUserInput(e, textfile, text_lines);
-					HandleDelete(e, textfile, text, text_lines, text_offset, line_counter, text_font, line_counter_offset);
-				}
 			}
 			if (e.type == sf::Event::KeyPressed)
 			{
-				if (!command_mode) {
-					if (e.key.code == sf::Keyboard::LShift) {
+				if (e.key.code == sf::Keyboard::LShift) {
 
-						if (ctrl_held_down) {
-							ctrl_held_down = false;
-						}
+					if (ctrl_held_down) {
+						ctrl_held_down = false;
+					}
 					
-						shift_held_down = true;
-					}
-					if (e.key.code == sf::Keyboard::LControl) {
-						if (shift_held_down) {
-							shift_held_down = false;
-						}
-						ctrl_held_down = true;
-						std::cout << "Ctrl held down";
-					}
-
-					HandleLeftRightKeys(e, textfile, selection_mode, selection_start, selection_end, shift_held_down, highlight_indexes);
-					HandleUpDownKeys(e, textfile, selection_mode, ctrl_held_down, view, window);
-					HandleEnter(e, text_lines, textfile, text_font, text_offset, line_counter, line_counter_offset, view);
+					shift_held_down = true;
 				}
-			}
-
-			if (!command_mode) {
-				if (e.type == sf::Event::KeyReleased) {
-
-					if (e.key.code == sf::Keyboard::LShift) {
+				if (e.key.code == sf::Keyboard::LControl) {
+					if (shift_held_down) {
 						shift_held_down = false;
 					}
+					ctrl_held_down = true;
+					std::cout << "Ctrl held down";
+				}
 
-					if (e.key.code == sf::Keyboard::LControl) {
-						ctrl_held_down = false;
-						//std::cout << "ctrl released";
-					}
+				HandleLeftRightKeys(e, textfile, selection_mode, selection_start, selection_end, shift_held_down);
+				HandleUpDownKeys(e, textfile, selection_mode, ctrl_held_down, view, window);
+				HandleEnter(e, text_lines, textfile, text_font, text_offset, line_counter, line_counter_offset, view);
+				
+			}
+			if (e.type == sf::Event::KeyReleased) {
+
+				if (e.key.code == sf::Keyboard::LShift) {
+					shift_held_down = false;
+				}
+
+				if (e.key.code == sf::Keyboard::LControl) {
+					ctrl_held_down = false;
+					//std::cout << "ctrl released";
 				}
 			}
 
@@ -231,59 +195,6 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 
 	}
 	return 0;
-}
-
-void HandleCommandInput() {
-	
-}
-
-
-void ExecuteCommand() {
-	if (command_mode) {
-
-		// If there is nothing to interpret, stop command
-		if (current_command.size() == 0) {
-			command_mode = false;
-			current_command = "";
-			return;
-		}
-
-		std::string command_type = "";
-
-		command_type.push_back(current_command[0]); // GET THE FIRST TWO CHARS FOR THE CMD
-		command_type.push_back(current_command[1]);
-		
-		
-
-		if (command_type != "rp") { // TODO: Replace this with a list of commands when there's one
-			return; 
-		}
-
-		int line_one = 0;
-		int line_two = 0;
-
-		bool fill_line_two = false;
-
-		try {
-			for (int i = 2; i < current_command.size(); i++) {
-				if (current_command[i] == ':') {
-					fill_line_two = true;
-				}
-
-				if (!fill_line_two) {
-					line_one += std::stoi(&current_command[i]);
-				}
-				else {
-					line_two += std::stoi(&current_command[i]);
-				}
-
-			}
-			std::cout << command_type << " " << line_one << ":" << line_two;
-		}
-		catch (const std::exception & e) { // if it fails, then the command was wrong
-			return;
-		}
-	}
 }
 
 void TextInputHelper(sf::Event& e, TextFile& textfile) {
@@ -405,8 +316,6 @@ void HandleDelete(sf::Event& e, TextFile& textfile, sf::Text& text, std::vector<
 				text_lines[i].setPosition(sf::Vector2f(offset_x, offset_y));
 			}
 			PopulateCountBar(line_counter, textfile, text_font, line_counter_offset);
-
-			previous_line_selected = textfile.gap_buffer.GetCurrentLine();
 		}
 	}
 
@@ -430,8 +339,6 @@ void PrintOutDebug(TextFile& textfile)
 	}
 }
 
-
-// Helper function to help with up and down indexing handling for the different types of index modes
 void HandleUpAndDownIndexing(TextFile& textfile, const int old_line) {
 	if (index_mode == SaveIndex) { // If in save index mode, don't do the next steps
 		return;
@@ -445,21 +352,16 @@ void HandleUpAndDownIndexing(TextFile& textfile, const int old_line) {
 
 	//if () do pre optimization and check if the gap start is already what we need it to be
 
-
 	if (old_line_gap_start == new_line_gap_start) {
 		std::cout << std::endl;
-		std::cout << old_line_gap_start << std::endl;
-		std::cout << new_line_gap_start << std::endl;
 		return; // We don't need to do anything further
 	}
 
-	if (old_line_gap_start > new_line_gap_start) { // This means that the line we moved to has to have its index at the end
+	int non_null_content_count = textfile.gap_buffer.GetLines()[current_line].size() - textfile.gap_buffer.GetGapEnd();
+
+	if (old_line_gap_start > non_null_content_count) { // This means that the line we moved to has to have its index at the end
 
 		// 1) Set the gap start and gap ends for the current line
-
-		std::cout << std::endl;
-		std::cout << old_line_gap_start << std::endl;
-		std::cout << new_line_gap_start << std::endl;
 
 		int gap_buffer_size = textfile.gap_buffer.GetLines()[current_line].size();
 		int gap_start = textfile.gap_buffer.GetGapStart();
@@ -476,6 +378,9 @@ void HandleUpAndDownIndexing(TextFile& textfile, const int old_line) {
 		// 2) Override the gap start and gap end
 		textfile.gap_buffer.SetGapStart(gap_start);
 		textfile.gap_buffer.SetGapEnd(gap_end);
+
+		std::cout << "ye";
+
 		return;
 	}
 	else {
@@ -508,6 +413,7 @@ void HandleUpAndDownIndexing(TextFile& textfile, const int old_line) {
 	}
 }
 
+
 void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode, bool& ctrl_pressed, sf::View& view, sf::RenderWindow& window) {
 	if (e.key.code == sf::Keyboard::Down) {
 
@@ -532,6 +438,8 @@ void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode, bo
 			std::cout << std::endl;
 		}
 		
+
+
 	}
 
 	if (e.key.code == sf::Keyboard::Up) {
@@ -552,15 +460,12 @@ void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode, bo
 
 		}
 		else {
-
+			// If the screen is positioned at a point where the user may not scroll further, don't allow obviously
 			if (view.getCenter().y == DEFAULT_SCREEN_HEIGHT / 2.f) {
 				return;
 			}
 
-			std::cout << view.getCenter().y;
-			std::cout << std::endl;
-			std::cout << DEFAULT_SCREEN_HEIGHT / 2.f;
-
+			// Otherwise, move the view down by a factor of -20, very dumb hardcoded value
 			view.move(sf::Vector2f(0.f, -20.f));
 		}
 	}
@@ -569,7 +474,7 @@ void HandleUpDownKeys(sf::Event& e, TextFile& textfile, bool& selection_mode, bo
 
 void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode,
 	std::tuple<int, int>& selection_start, std::tuple<int, int>& selection_end,
-	bool& shift_held_down, std::vector<std::tuple<int, int>>& highlight_indexes)
+	bool& shift_held_down)
 {
 	// Record the selection_start only the first time that the user presses any of the keys, after which turn on selection mode
 	if (e.key.code == sf::Keyboard::Left || e.key.code == sf::Keyboard::Right) {
@@ -587,12 +492,16 @@ void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode,
 		textfile.gap_buffer.MoveGapRight();
 	}
 
+	// this does not work
 	if (selection_mode) {
 		selection_end = std::make_tuple(textfile.gap_buffer.GetCurrentLine(), textfile.gap_buffer.GetGapStart());
 	}
+
+	user_typed_tick = true;
+	user_typed_tick_counter = USER_TYPED_TICK_CD;
 }
 
-void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile, std::vector<std::tuple<int,int>> highlight_indexes) {
+void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, int> selection_end, TextFile& textfile) {
 
 	std::vector<std::vector<char>> lines = textfile.gap_buffer.GetLines();
 	std::string selected_characters = "";
@@ -639,19 +548,11 @@ void PrintSelectedChars(std::tuple<int, int> selection_start, std::tuple<int, in
 
 }
 
+// Draws the sidebar that shows the line count.
+// TODO: Make it so that the current line is highlighted in a different color
 void DrawLineCountBar(std::vector<sf::Text>& line_counter, sf::RenderWindow& window, TextFile& textfile) {
 	for (int i = 0; i < line_counter.size(); i++) {
 
-		if (i == textfile.gap_buffer.GetCurrentLine()) 
-		{
-			if (i != previous_line_selected) { // if the user has selected a different line, remove the highlight from the last line 
-				line_counter[previous_line_selected].setFillColor(line_count_color);
-				line_counter[i].setFillColor(sf::Color::White);
-				previous_line_selected = i;
-
-				continue;
-			}
-		}
 		line_counter[i].setFillColor(line_count_color);
 		window.draw(line_counter[i]);
 	}
@@ -690,9 +591,9 @@ void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
 		int line_before = textfile.gap_buffer.GetCurrentLine(); 
 		textfile.gap_buffer.InsertNewLine();
 
-		sf::Text new_line_text;
-
 		int rounded_offset_x = static_cast<int>(offset.x);
+
+		sf::Text new_line_text;
 		new_line_text.setCharacterSize(20);
 		new_line_text.setFont(text_font);
 		new_line_text.setString(" ");
@@ -762,7 +663,6 @@ void HandleEnter(sf::Event& e, std::vector<sf::Text>& text_lines,
 		}
 
 		PopulateCountBar(line_counter, textfile, text_font, line_counter_offset);
-		previous_line_selected = textfile.gap_buffer.GetCurrentLine();
 	}
 }
 
@@ -795,6 +695,7 @@ void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window)
 
 // Check whether the user has pressed a key with user_typed_tick
 // Depending on the bool, the highlight either stays fully filled or blinks in a less transparent mode
+// This refers to the blinking index indicator
 void HighlightTypingPosition(sf::Text& current_text_line, sf::Font& font, int current_line_index, sf::RenderWindow& window, sf::View& view) {
 	sf::RectangleShape rect;
 	rect.setPosition(current_text_line.findCharacterPos(current_line_index).x +

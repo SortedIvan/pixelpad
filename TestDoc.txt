@@ -1,1 +1,74 @@
-abc
+// Online C++ compiler to run C++ program online
+#include <iostream>
+#include <vector>
+#include <tuple>
+int main() {
+    std::vector<std::vector<char>> buffer = 
+    {
+        {'a','b','c','d'},
+        {'a','c','d','a'},
+        {'b','o','k'}
+    };
+    
+    // RESULT HAS TO BE {A,B,K}
+    
+    std::vector<std::tuple<int, int>> indexes = {
+        std::make_tuple(2, 1),
+        std::make_tuple(2, 0),
+        std::make_tuple(1, 3),
+        std::make_tuple(1, 2),
+        std::make_tuple(1, 1),
+        std::make_tuple(1, 0),
+        std::make_tuple(0, 3),
+        std::make_tuple(0, 2),
+    };
+    
+    int current_biggest_line = 0;
+    int starting_index_line = 0;
+    int end_line = std::get<0>(indexes[-1]);
+    std::vector<char> starting_line;
+    for (int i = 0; i < indexes.size(); i++) {
+        if (i == 0) {
+            current_biggest_line = std::get<0>(indexes[0]);
+            starting_line = buffer[std::get<0>(indexes[0])];
+            starting_index_line = std::get<0>(indexes[0]);
+            buffer[std::get<1>(indexes[0])][std::get<0>(indexes[0])] = '\0';
+            continue;
+        }
+        
+        if (current_biggest_line >  std::get<0>(indexes[i])) {
+            
+            buffer.erase(buffer.begin() + current_biggest_line);
+            current_biggest_line = std::get<0>(indexes[i]);
+            buffer[std::get<0>(indexes[i])][std::get<1>(indexes[i])] = '\0';
+            continue;
+        }
+        
+        if (std::get<0>(indexes[i]) == starting_index_line) {
+            starting_line[std::get<1>(indexes[i])] = '\0';
+        }
+        
+        buffer[std::get<0>(indexes[i])][std::get<1>(indexes[i])] = '\0';
+    }
+    
+    for (int k = 0; k < starting_line.size(); k++) {
+        if (starting_line[k] != '\0') {
+            buffer[end_line].push_back(starting_line[k]);
+        }
+    }
+    
+    for (int i = 0; i < buffer.size(); i++) {
+        for (int j = 0; j < buffer[i].size(); j++){
+            
+            if (buffer[i][j] == '\0') {
+                std::cout << "_";
+                continue;
+            }
+            
+            std::cout << buffer[i][j];            
+        }
+        
+        std::cout << std::endl;
+    }
+    
+}

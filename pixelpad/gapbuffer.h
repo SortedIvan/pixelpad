@@ -1,12 +1,21 @@
 #pragma once
 #include <vector>
 
+/*
+	Pixelpad initially used a regular gap buffer with some modifications to keep the total line count, 
+	the current line and newline characters's positions.
+	However, due to pixelpad being a prototype, using a more complex ds such as ropes or data tables, space complexity is not a big issue, 
+	as long as it is time efficient. Thus, for those reasons, pixelpad's current implementation of a gap buffer changed to the original.
 
+	Pixelpad uses a collection of gap buffers, all of which have their gap start, gap end and gap size. 
+	This allows for each line to be represented as its own gap buffer, making it extremely efficient,
+	especially when used for regular text writing.
+*/
 
 class GapBuffer {
 
 private:
-	std::vector<std::vector<char>> lines;
+	std::vector<std::vector<char>> lines; // Contains each seperate "gap buffer" which runs parallel with the vectors bellow
 	std::vector<int> gap_starts;
 	std::vector<int> gap_ends;
 	std::vector<int> gap_sizes;
