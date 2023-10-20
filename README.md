@@ -78,6 +78,9 @@ Space complexity is yet to be analyzed.
 
 <h4> Visuals </h4>
 
+![helloworld!](https://github.com/SortedIvan/pixelpad/assets/62967263/66ad99a0-bbc4-41a4-866d-ed46961b098f)
+
 ![scroll!](https://github.com/SortedIvan/pixelpad/assets/62967263/92d3ecca-696e-4a87-a6ba-478b52684d07)
 
 ![write!](https://github.com/SortedIvan/pixelpad/assets/62967263/8863c23c-fb37-4e4e-b36e-4bd3b31c68e8)
+
