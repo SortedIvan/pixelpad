@@ -1,5 +1,6 @@
 #include "editor.h"
 #include "textfile.h"
+#include "textaction.h"
 #include "SFML/Graphics.hpp"
 #include <stdio.h>
 #include <iostream>
@@ -8,8 +9,10 @@
 #include <tuple>
 #include <windows.h>
 #include <typeinfo>
+#include <deque>
 
-void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines);
+
+void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines,bool& ctrl_held_down);
 void PrintOutDebug(TextFile& textfile);
 void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode, std::tuple<int, int>& selection_start,
 	 std::tuple<int, int>& selection_end, bool& shift_held_down);
@@ -50,14 +53,18 @@ static sf::Vector2f cursor_position;
 static sf::Vector2f old_cursor_position;
 static sf::Vector2f cursor_size;
 
-//<---------------------------------- Command line ----------------------------------------->
-
+//<---------------------------------- Indexing ----------------------------------------->
 enum IndexMode {
 	DefaultIndex, // absolute garbage, must be re-written. Should be default indexing for regular text editors
 	SaveIndex // Indexing option: the lines remember where the user was last typing
 };
-
 static IndexMode index_mode = SaveIndex;
+
+// <--------------------------------- Undo-redo action handling ------------------------>
+static TextActionType current_action = TextActionType(NONE); // Initialize as a none action
+static TextActionType previous_action = TextActionType(NONE); 
+
+
 
 int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 {
@@ -84,6 +91,13 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 
 	std::vector<sf::Text> text_lines;
 	std::vector<sf::Text> line_counter;
+
+	// <---------------------- -UNDO-REDO action handling -------------------------------- >
+	/*std::deque<*/
+	std::deque<TextAction> undo_deque; // ctrl + z
+	std::deque<TextAction> redo_deque; // ctrl + y
+
+	
 
 	// Temporary string that we use to initialize the gap buffer -> TODO: Remove this and create a more memory efficient solution
 	std::string temp_content_string;
@@ -126,13 +140,20 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 			// <------------- handle input ---------------------->
 			if (e.type == sf::Event::TextEntered)
 			{
-				HandleUserInput(e, textfile, text_lines);
+				HandleUserInput(e, textfile, text_lines, ctrl_held_down);
 				HandleDelete(e, textfile, text, text_lines, text_offset, line_counter, text_font, line_counter_offset);
-				PrintOutDebug(textfile);
 
 			}
 			if (e.type == sf::Event::KeyPressed)
 			{
+				if (ctrl_held_down && e.key.code == sf::Keyboard::Z) {
+					std::cout << "this works";
+				}
+
+				if (ctrl_held_down && e.key.code == sf::Keyboard::Y) {
+					std::cout << "this works";
+				}
+
 				if (e.key.code == sf::Keyboard::LShift) {
 
 					if (ctrl_held_down) {
@@ -254,11 +275,12 @@ void TextInputHelper(sf::Event& e, TextFile& textfile) {
 }
 
 
-void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines)
+void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines, bool& ctrl_held_down)
 {
 	if (event.text.unicode != '\b' && event.text.unicode != '\r' &&
 		event.key.code != sf::Keyboard::Left && event.key.code != sf::Keyboard::Right && event.text.unicode != 36 
-		&& event.key.code != sf::Keyboard::Escape)
+		&& event.key.code != sf::Keyboard::Escape && (!ctrl_held_down && event.key.code != sf::Keyboard::Z) 
+		&& (!ctrl_held_down && event.key.code != sf::Keyboard::Y))
 	{
 		TextInputHelper(event, textfile);
 
@@ -679,6 +701,10 @@ void ResizeView(const sf::RenderWindow& window, sf::View& view)
 {
 	float aspect_ratio = float(window.getSize().x) / float(window.getSize().y);
 	view.setSize(DEFAULT_SCREEN_HEIGHT * aspect_ratio, DEFAULT_SCREEN_HEIGHT);
+}
+
+void HandleAction() {
+
 }
 
 void ResizeTextRelativeToScreen(sf::Text& text, sf::RenderWindow& window)
