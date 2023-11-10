@@ -65,10 +65,10 @@ static IndexMode index_mode = SaveIndex;
 // <--------------------------------- Undo-redo action handling ------------------------>
 static TextActionType current_action = TextActionType(NONE); // Initialize as a none action
 static TextActionType previous_action = TextActionType(NONE);
-static int last_action_line_nr = 999999999; // set to a number that couldn't be reached with line count
 static std::deque<TextAction> undo_deque; // ctrl + z
 static std::deque<TextAction> redo_deque; // ctrl + y
 bool prev_undone = false;
+int last_typed_line = 0;
 
 int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 {
@@ -327,7 +327,7 @@ void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>
 		previous_action = current_action;
 		current_action = TextActionType(TextInput);
 
-		if (prev_undone || previous_action != current_action) {
+		if (prev_undone || previous_action != current_action || current_line != last_typed_line) {
 			// add new action
 			// set new action to false
 			TextActionHelper(textfile, text_lines, current_line);
@@ -351,7 +351,7 @@ void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>
 		text_lines[current_line].setString(temp_line);
 		user_typed_tick = true;
 		user_typed_tick_counter = USER_TYPED_TICK_CD;
-
+		last_typed_line = current_line;
 		PrintOutDebug(textfile);
 	}
 }
