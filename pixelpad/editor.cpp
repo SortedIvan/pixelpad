@@ -12,7 +12,8 @@
 #include <deque>
 
 
-void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines,bool& ctrl_held_down, const int& current_line);
+void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines,
+	bool& ctrl_held_down, const int& current_line);
 void PrintOutDebug(TextFile& textfile);
 void HandleLeftRightKeys(sf::Event& e, TextFile& textfile, bool& selection_mode, std::tuple<int, int>& selection_start,
 	 std::tuple<int, int>& selection_end, bool& shift_held_down);
@@ -33,7 +34,7 @@ void DrawLineCountBar(std::vector<sf::Text>& line_counter, sf::RenderWindow& win
 void PopulateCountBar(std::vector<sf::Text>& line_counter, TextFile& textfile, sf::Font& text_font, sf::Vector2f line_count_offset);
 void TextInputHelper(sf::Event& e, TextFile& textfile);
 void HandleUpAndDownIndexing(TextFile& textfile, const int old_line);
-void HandleUndoAction(TextFile& textfile, bool last_action_saved, std::vector<sf::Text>& textlines, const int& current_line);
+void HandleUndoAction(TextFile& textfile, std::vector<sf::Text>& textlines, const int& current_line);
 
 // <----------------- Graphical settings & configuration ----------------------------------->
 static const float DEFAULT_SCREEN_WIDTH = 1024.f;
@@ -64,14 +65,10 @@ static IndexMode index_mode = SaveIndex;
 // <--------------------------------- Undo-redo action handling ------------------------>
 static TextActionType current_action = TextActionType(NONE); // Initialize as a none action
 static TextActionType previous_action = TextActionType(NONE);
-static TextAction action_holder;
 static int last_action_line_nr = 999999999; // set to a number that couldn't be reached with line count
-static bool current_action_saved = true;
 static std::deque<TextAction> undo_deque; // ctrl + z
 static std::deque<TextAction> redo_deque; // ctrl + y
-
-
-
+bool prev_undone = false;
 
 int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 {
@@ -146,20 +143,9 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 			if (e.type == sf::Event::KeyPressed)
 			{
 				if (ctrl_held_down && e.key.code == sf::Keyboard::Z) {
-					if (!current_action_saved) {
-						// We need to first get rid of the action in the global action holder
-						// This is because it would be inefficient to constantly update the last action in the deque
-						
-						// restore text state
-						if (action_holder.GetActionType() == TextActionType(TextInput)) {
-							HandleUndoAction(textfile, false, text_lines, textfile.gap_buffer.GetCurrentLine());
 
-							current_action_saved = false;
-
-							continue;
-						}
-
-					}
+					HandleUndoAction(textfile, text_lines, textfile.gap_buffer.GetCurrentLine());
+					prev_undone = true;
 				}
 
 				if (ctrl_held_down && e.key.code == sf::Keyboard::Y) {
@@ -230,20 +216,30 @@ int Editor::StartEditorWithFile(std::string filename, std::string filepath)
 	return 0;
 }
 
-void HandleUndoAction(TextFile& textfile, bool last_action_saved, std::vector<sf::Text>& textlines, const int& current_line) {
-	if (!last_action_saved) {
-		if (action_holder.GetActionType() == TextActionType(TextInput)) {
+void HandleUndoAction(TextFile& textfile, std::vector<sf::Text>& textlines, const int& current_line) {
 
-			textfile.gap_buffer.GetLines()[action_holder.GetActionLineNr()] = action_holder.GetLineAffected();
-			textlines[action_holder.GetActionLineNr()] = action_holder.GetTextLineGraphics();
-			textfile.gap_buffer.SetCurrentLine(action_holder.GetActionLineNr());
+	if (undo_deque.size() == 0) {
+		return;
+	}
 
-			textfile.gap_buffer.GetGapEnds()[current_line] = action_holder.GetGapEnd();
-			textfile.gap_buffer.GetGapStarts()[current_line] = action_holder.GetGapStart();
-			textfile.gap_buffer.GetGapSizes()[current_line] = action_holder.GetGapSize();
+	TextAction action = undo_deque.back();
 
-			return;
-		}
+	if (action.GetActionType() == TextActionType(TextInput)) {
+
+		undo_deque.pop_back();
+		redo_deque.push_back(action);
+
+		textfile.gap_buffer.SetCurrentLine(action.GetActionLineNr()); // Restore the gap line nr
+
+		textfile.gap_buffer.SetLine(action.GetActionLineNr(), action.GetLineAffected());
+		textlines[action.GetActionLineNr()] = action.GetTextLineGraphics();
+			
+		textfile.gap_buffer.SetGapEnd(action.GetGapEnd());
+		textfile.gap_buffer.SetGapStart(action.GetGapStart());
+		textfile.gap_buffer.SetGapSize(action.GetGapSize());
+
+		return;
+		
 	}
 }
 
@@ -303,6 +299,22 @@ void TextInputHelper(sf::Event& e, TextFile& textfile) {
 	textfile.gap_buffer.InsertCharacter(e.text.unicode);
 }
 
+void TextActionHelper(TextFile& textfile, std::vector<sf::Text>& text_lines, int current_line) {
+
+
+	TextAction action;
+	action.SetActionType(current_action);
+	action.SetLineAffected(textfile.gap_buffer.GetLines().at(current_line));
+	action.SetLineOfAction(current_line);
+	action.SetTextLineGraphics(text_lines.at(current_line));
+
+	// Save the current gap buffer state
+	action.SetGapStart(textfile.gap_buffer.GetGapStart());
+	action.SetGapEnd(textfile.gap_buffer.GetGapEnd());
+	action.SetGapSize(textfile.gap_buffer.GetGapSize());
+
+	undo_deque.push_back(action);
+}
 
 void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>& text_lines, bool& ctrl_held_down,
 	const int& current_line)
@@ -314,29 +326,13 @@ void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>
 	{
 		previous_action = current_action;
 		current_action = TextActionType(TextInput);
-		if (previous_action != current_action && last_action_line_nr != current_line) { // Means that we need a new action object
 
-			if (!current_action_saved) {
-				// save action before saving new state
-				undo_deque.push_back(action_holder);
-				current_action_saved = true;
-			}
-
-			// <---- save the state of the current action ------->
-			action_holder.SetActionType(current_action);
-			action_holder.SetLineAffected(textfile.gap_buffer.GetLines().at(current_line));
-			action_holder.SetLineOfAction(current_line);
-			action_holder.SetTextLineGraphics(text_lines.at(current_line));
-
-			// Save gap buffer state here
-			action_holder.SetGapStart(textfile.gap_buffer.GetGapStart());
-			action_holder.SetGapEnd(textfile.gap_buffer.GetGapEnd());
-			action_holder.SetGapSize(textfile.gap_buffer.GetGapSize());
-
-			current_action_saved = false;
+		if (prev_undone || previous_action != current_action) {
+			// add new action
+			// set new action to false
+			TextActionHelper(textfile, text_lines, current_line);
+			prev_undone = false;
 		}
-
-		PrintOutDebug(textfile);
 
 		// <-------------- Before entering text, action handling above ------------->
 
@@ -355,6 +351,8 @@ void HandleUserInput(sf::Event& event, TextFile& textfile, std::vector<sf::Text>
 		text_lines[current_line].setString(temp_line);
 		user_typed_tick = true;
 		user_typed_tick_counter = USER_TYPED_TICK_CD;
+
+		PrintOutDebug(textfile);
 	}
 }
 
@@ -417,6 +415,11 @@ void PrintOutDebug(TextFile& textfile)
 		}
 		std::cout << std::endl;
 	}
+
+	std::cout << "---------------------- GAP BUFFER STATS --------------------------" << std::endl;
+	std::cout << "GAP START: " << textfile.gap_buffer.GetGapStart() << std::endl;
+	std::cout << "GAP END: " << textfile.gap_buffer.GetGapEnd() << std::endl;
+	std::cout << "GAP SIZE: " << textfile.gap_buffer.GetGapSize() << std::endl;
 }
 
 void HandleUpAndDownIndexing(TextFile& textfile, const int old_line) {
