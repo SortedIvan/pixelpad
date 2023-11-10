@@ -46,31 +46,30 @@ Pixelpad uses a collection of gap buffers, all of which have their gap start, ga
 
 <h4>Runtime</h4>
 Character Insertion:
-
 Runtime Complexity: O(1)
 Explanation: Character insertion is typically an efficient operation, as it involves placing a character in the gap or moving the gap as needed, which takes constant time.
-Character Deletion:
 
+Character Deletion:
 Runtime Complexity: O(1)
 Explanation: Character deletion also has a constant time complexity since it involves removing a character from the gap or shifting the gap, which can be done in constant time.
-Move Gap Left:
 
+Move gap left:
 Runtime Complexity: O(1)
 Explanation: Moving the gap to the left is a constant-time operation, as it involves copying a character within the same line or shifting the gap between lines, both of which take constant time.
-Move Gap Right:
 
+Move gap right:
 Runtime Complexity: O(1)
 Explanation: Moving the gap to the right has a constant time complexity, similar to moving the gap left. It involves copying a character within the same line or shifting the gap between lines in constant time.
-Insert New Line:
 
+Insert New Line:
 Runtime Complexity: O(n)
 Explanation: Inserting a new line involves creating a new line in the buffer, which may require shifting characters from the current line to the new line. The time complexity depends on the number of characters to be shifted, which can be up to the length of the line, leading to a linear time complexity.
-Delete Line Manually:
 
+Delete Line Manually:
 Runtime Complexity: O(n)
 Explanation: Deleting a line manually may require shifting lines above the deleted line to fill the gap. The time complexity is linear and depends on the number of lines to be shifted.
-Move Line Up/Down:
 
+Move Line Up/Down:
 Runtime Complexity: O(1)
 Explanation: Moving a line up or down is a constant-time operation, as it involves changing the current line pointer, which is done in constant time.
 
