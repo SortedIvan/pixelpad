@@ -143,9 +143,11 @@
     <ClCompile Include="editor.cpp" />
     <ClCompile Include="gapbuffer.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="textaction.cpp" />
     <ClCompile Include="textfile.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="textaction.h" />
     <ClInclude Include="editor.h" />
     <ClInclude Include="gapbuffer.h" />
     <ClInclude Include="textfile.h" />
