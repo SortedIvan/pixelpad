@@ -26,7 +26,7 @@ As previously mentioned, the gap gets extended periodically. Thus, once this exa
 We have the array (square brackets replaced with curly brackets due to markdown formatting styles) 
 >{a, b, c, d, e, _ , _ , _ , _ }
 
-where _ represents the gap.
+where the character '_' represents the gap.
 
 There are 3 important sections that we need to keep track of: the start of the gap, the end of the gap and the size of the gap, which in the above example are:
 
